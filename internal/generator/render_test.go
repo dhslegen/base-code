@@ -75,3 +75,37 @@ func TestRender_Service_InlinedAndPruned(t *testing.T) {
 		}
 	}
 }
+
+// TestRender_Po_AutoFill 验证 autoFill 字段渲染 fill = FieldFill.INSERT，
+// 且 IsWithAutoFill=true 时用通配 import（com.baomidou.mybatisplus.annotation.*）。
+func TestRender_Po_AutoFill(t *testing.T) {
+	d := sampleData()
+	d.IsWithAutoFill = true
+	d.Fields = append(d.Fields, model.FieldMetadata{
+		JavaType: "LocalDateTime", Name: "createdAt", TableField: "created_at",
+		Comment: "创建时间", AutoFill: "insert",
+	})
+	out, err := Render("po", d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "fill = FieldFill.INSERT") {
+		t.Errorf("应渲染 autoFill 的 FieldFill.INSERT:\n%s", out)
+	}
+	if !strings.Contains(out, "import com.baomidou.mybatisplus.annotation.*;") {
+		t.Errorf("IsWithAutoFill=true 应使用通配 import:\n%s", out)
+	}
+}
+
+// TestRender_Po_NoJakarta 验证 UseJakarta=false 时不出现 @Serial / java.io.Serial import。
+func TestRender_Po_NoJakarta(t *testing.T) {
+	d := sampleData()
+	d.UseJakarta = false
+	out, err := Render("po", d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "@Serial") || strings.Contains(out, "import java.io.Serial;") {
+		t.Errorf("UseJakarta=false 不应出现 @Serial / java.io.Serial:\n%s", out)
+	}
+}
