@@ -44,7 +44,6 @@ type root struct {
 }
 
 // Load 读取并解析配置文件，随后补齐约定默认值。
-// Go 小白知识点：指针接收者（*Config）能修改入参；不带指针则只能读。
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

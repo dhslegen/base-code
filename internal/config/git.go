@@ -1,4 +1,3 @@
-// Package config git helper functions.
 package config
 
 import (
