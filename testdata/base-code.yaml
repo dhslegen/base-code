@@ -1,0 +1,10 @@
+base-code:
+  base-package: com.dahaoshen.demo
+  output-root: ./out/src/main/java
+  datasource:
+    dialect: mysql
+    host: localhost
+    port: 3306
+    username: root
+    password: secret
+    database: demo
