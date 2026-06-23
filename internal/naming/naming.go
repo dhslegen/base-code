@@ -33,6 +33,8 @@ func camel(s string, upperFirst bool) string {
 }
 
 // Kebab 把大驼峰 UserRole 转成中划线 user-role。
+// 契约：仅接受大驼峰输入（与 Java toKebabCase 一致）；下划线/中划线不会被处理，
+// 调用方应传入 UpperCamel 结果（如 naming.Kebab(naming.UpperCamel(name))）。
 func Kebab(s string) string {
 	var b strings.Builder
 	for i, c := range s {
@@ -48,7 +50,8 @@ func Kebab(s string) string {
 	return b.String()
 }
 
-// Capitalize 仅首字母大写，其余原样（用于由驼峰字段名拼 getter，如 userName -> UserName）。
+// Capitalize 仅把首字符大写，其余字符不做任何大小写转换（区别于 UpperCamel 会整体规整）。
+// 用于由小驼峰字段名拼 getter，如 userName -> UserName。
 func Capitalize(s string) string {
 	if s == "" {
 		return s
@@ -58,6 +61,8 @@ func Capitalize(s string) string {
 	return string(r)
 }
 
+// toUpper/toLower 只处理 ASCII 字母：手动实现而非用 unicode 包，是为零依赖且够用（列名均为 ASCII）。
+//
 // toUpper 将单个 rune 的小写字母转大写，非字母原样返回。
 func toUpper(c rune) rune {
 	if c >= 'a' && c <= 'z' {

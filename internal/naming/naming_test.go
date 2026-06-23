@@ -19,19 +19,37 @@ func TestCamel(t *testing.T) {
 }
 
 func TestUpperCamel(t *testing.T) {
-	if got := UpperCamel("user_role"); got != "UserRole" {
-		t.Errorf("UpperCamel = %q, want UserRole", got)
+	cases := map[string]string{
+		"user_role": "UserRole",
+		"id":         "Id",
+	}
+	for in, want := range cases {
+		if got := UpperCamel(in); got != want {
+			t.Errorf("UpperCamel(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
 func TestKebab(t *testing.T) {
-	if got := Kebab("UserRole"); got != "user-role" {
-		t.Errorf("Kebab = %q, want user-role", got)
+	cases := map[string]string{
+		"UserRole": "user-role",
+		"Id":        "id",
+	}
+	for in, want := range cases {
+		if got := Kebab(in); got != want {
+			t.Errorf("Kebab(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
 func TestCapitalize(t *testing.T) {
-	if got := Capitalize("userName"); got != "UserName" {
-		t.Errorf("Capitalize = %q, want UserName", got)
+	cases := map[string]string{
+		"userName": "UserName",
+		"":          "", // 空串 guard
+	}
+	for in, want := range cases {
+		if got := Capitalize(in); got != want {
+			t.Errorf("Capitalize(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
