@@ -16,6 +16,8 @@ var rootCmd = &cobra.Command{
 	Use:   "base-code",
 	Short: "数据库代码生成器（Go 版）",
 	Long:  "连接数据库扫描表结构，按约定生成 MyBatis-Plus 分层 Java 代码。",
+	// SilenceErrors=true：让 cobra 不自行打印 error（改由 main 统一打印一次中文"错误: ..."，避免重复）。
+	SilenceErrors: true,
 }
 
 // Execute 由 main 调用，启动整个命令树的解析与执行。
