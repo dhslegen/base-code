@@ -19,7 +19,7 @@ type TypeMapper interface {
 }
 
 // For 按方言返回对应的 TypeMapper。
-// M1 仅实现 MySQL，PostgreSQL 留待 M3 返回 error。
+// PostgreSQL 暂未实现，调用返回 error。
 func For(d dialect.SqlDialect) (TypeMapper, error) {
 	switch d {
 	case dialect.MySQL:

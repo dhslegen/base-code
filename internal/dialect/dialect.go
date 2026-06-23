@@ -4,8 +4,7 @@ package dialect
 
 import "fmt"
 
-// SqlDialect 是方言的具名类型，本质是 string 的别名。
-// 使用具名类型使编译器能区分不同含义的字符串。
+// SqlDialect 是底层类型为 string 的「具名类型」（named type，非 type alias：用 type X string 而非 type X = string）。用具名类型而非裸 string 可获得编译期类型安全。
 type SqlDialect string
 
 const (
