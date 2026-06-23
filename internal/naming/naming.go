@@ -12,36 +12,21 @@ func UpperCamel(s string) string { return camel(s, true) }
 
 // camel 是内部实现：upperFirst 决定首字母是否大写。
 // Go 小白知识点：小写开头的函数名 = 包私有（未导出），不会被外部包引用。
-// 转换规则：
-//   - 遇到分隔符（_ 或 -）时跳过，并标记下一字符要大写
-//   - 首字母按 upperFirst 决定大/小写
-//   - 其余字符（非分隔符触发位置）原样写入，保留原有大小写
+// 语义对齐 Java toCamelCase：非分隔符字符一律按 nextUpper 决定大写、否则强制小写，
+// 这样大写/混合大小写的列名（如 USER_NAME）也能规整为小驼峰 userName。
 func camel(s string, upperFirst bool) string {
-	// isFirst 标记当前处理的是否为第一个有效字符（决定首字母大小写）
-	isFirst := true
-	nextUpper := false
+	nextUpper := upperFirst
 	var b strings.Builder
 	for _, c := range s { // range string 按 rune（Unicode 码点）遍历
 		if c == '_' || c == '-' {
 			nextUpper = true
 			continue
 		}
-		if isFirst {
-			// 首字母：按 upperFirst 决定大写或小写
-			if upperFirst {
-				b.WriteRune(toUpper(c))
-			} else {
-				b.WriteRune(toLower(c))
-			}
-			isFirst = false
-			nextUpper = false
-		} else if nextUpper {
-			// 分隔符后的第一个字符强制大写
+		if nextUpper {
 			b.WriteRune(toUpper(c))
 			nextUpper = false
 		} else {
-			// 其余字符原样保留（保持输入的大小写）
-			b.WriteRune(c)
+			b.WriteRune(toLower(c))
 		}
 	}
 	return b.String()

@@ -5,10 +5,11 @@ import "testing"
 // 表驱动测试：Go 惯用法，一组用例跑同一逻辑。
 func TestCamel(t *testing.T) {
 	cases := map[string]string{
-		"user_name": "userName",
-		"user-name": "userName",
-		"CreatedAt": "createdAt",
-		"id":        "id",
+		"user_name":  "userName",
+		"user-name":  "userName",
+		"created_at": "createdAt",
+		"USER_NAME":  "userName", // 大写列名也应规整为小驼峰（与 Java toCamelCase 一致）
+		"id":         "id",
 	}
 	for in, want := range cases {
 		if got := Camel(in); got != want {
