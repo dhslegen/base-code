@@ -43,13 +43,22 @@ func sampleCfg(out string) config.Config {
 	}
 }
 
-// TestOutputPath 验证路径约定：po 层文件名无后缀（SysUser.java）；包路径由 base-package + 层后缀组成。
-// 期望：/root/com/dahaoshen/demo/model/po/SysUser.java
+// TestOutputPath 验证按约定推导落盘路径：po 文件名无后缀，mapper/service 加首字母大写层名后缀。
 func TestOutputPath(t *testing.T) {
-	got := OutputPath("po", "com.dahaoshen.demo", "/root", "SysUser")
-	want := filepath.FromSlash("/root/com/dahaoshen/demo/model/po/SysUser.java")
-	if got != want {
-		t.Errorf("OutputPath = %q, want %q", got, want)
+	cases := []struct {
+		layer string
+		want  string
+	}{
+		{"po", "/root/com/dahaoshen/demo/model/po/SysUser.java"},
+		{"mapper", "/root/com/dahaoshen/demo/mapper/SysUserMapper.java"},
+		{"service", "/root/com/dahaoshen/demo/service/SysUserService.java"},
+	}
+	for _, tc := range cases {
+		got := OutputPath(tc.layer, "com.dahaoshen.demo", "/root", "SysUser")
+		want := filepath.FromSlash(tc.want)
+		if got != want {
+			t.Errorf("layer=%s: OutputPath = %q, want %q", tc.layer, got, want)
+		}
 	}
 }
 
@@ -72,6 +81,7 @@ func TestGenerate_WritesFiles(t *testing.T) {
 // TestGenerate_DryRunNoWrite 验证 dryRun=true 时：
 //  1. 内容写入 out（buf.Len() > 0）
 //  2. 临时目录保持空（不落盘）
+//  3. 约定路径上确实未创建文件
 //
 // 这展示了 io.Writer 接口的核心价值：Generate 内部对 out 只调用 fmt.Fprintf，
 // 测试传 bytes.Buffer、main 传 os.Stdout，代码一字不改。
@@ -87,6 +97,11 @@ func TestGenerate_DryRunNoWrite(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Error("dry-run 不应落盘")
+	}
+	// 精准验证：po 层约定路径上确实未创建文件
+	poPath := filepath.Join(dir, "com/dahaoshen/demo/model/po/SysUser.java")
+	if _, err := os.Stat(poPath); !os.IsNotExist(err) {
+		t.Error("dry-run 不应在约定路径落盘")
 	}
 }
 
