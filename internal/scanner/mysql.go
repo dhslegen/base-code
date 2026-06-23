@@ -79,10 +79,11 @@ func (s mySQLScanner) ScanTable(table string) (model.TableMetadata, error) {
 
 	// 查询表注释（information_schema.tables）。
 	// 用 QueryRow 代替 Query：只期望一行结果，简化代码。
+	// 限定当前库 DATABASE() 避免跨库同名表歧义。
 	// 忽略此查询的错误——取不到注释不影响代码生成主流程（注释只是辅助信息）。
 	var tableComment string
 	_ = s.db.QueryRow(
-		"SELECT table_comment FROM information_schema.tables WHERE table_name = ? LIMIT 1", table,
+		"SELECT table_comment FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1", table,
 	).Scan(&tableComment)
 
 	return model.TableMetadata{
