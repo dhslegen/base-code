@@ -1,0 +1,71 @@
+package {{.BasePackage}}.service;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dahaoshen.mybatismax.service.IMaxService;
+import {{.BasePackage}}.model.po.{{.ModelUpperCamel}};
+import {{.BasePackage}}.model.query.{{.ModelUpperCamel}}Query;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * {{.ModelComment}} Service
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+public interface {{.ModelUpperCamel}}Service extends IMaxService<{{.ModelUpperCamel}}> {
+    // region 自动生成代码区,后续手动添加的代码要放在这个区域之外
+
+    /**
+     * 创建{{.ModelComment}}
+     */
+    {{.ModelUpperCamel}} create({{.ModelUpperCamel}} {{.ModelCamel}});
+
+    /**
+     * 批量创建{{.ModelComment}}
+     */
+    Boolean batchCreate(List<{{.ModelUpperCamel}}> {{.ModelCamel}}s);
+
+    /**
+     * 获取全部{{.ModelComment}}列表
+     */
+    List<{{.ModelUpperCamel}}> listAll();
+
+    /**
+     * 批量更新{{.ModelComment}}
+     */
+    Boolean batchUpdateById(List<{{.ModelUpperCamel}}> {{.ModelCamel}}s);
+
+    /**
+     * 通过ID删除{{.ModelComment}}
+     */
+    Boolean deleteById({{.IdType}} id);
+
+    /**
+     * 批量删除{{.ModelComment}}
+     */
+    Boolean batchDelete(List<{{.IdType}}> ids);
+
+    /**
+     * 通过查询条件分页获取{{.ModelComment}}
+     */
+    Page<{{.ModelUpperCamel}}> pageByQuery(long current, long size, {{.ModelUpperCamel}}Query query);
+
+    /**
+     * 分页获取全部{{.ModelComment}}
+     */
+    Page<{{.ModelUpperCamel}}> pageAll(long current, long size);
+
+    /**
+     * 获取ID和{{.ModelComment}}的映射
+     */
+    Map<{{.IdType}}, {{.ModelUpperCamel}}> getIdMap();
+
+    /**
+     * 获取全部{{.ModelComment}}数量
+     */
+    Long countAll();
+
+    // endregion 自动生成代码区,后续手动添加的代码要放在这个区域之外
+}
