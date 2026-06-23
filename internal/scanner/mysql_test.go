@@ -34,10 +34,10 @@ func TestMySQL_ScanTable(t *testing.T) {
 
 	// 模拟 SHOW FULL COLUMNS 返回两列：id（主键）、name。
 	// sqlmock.NewRows 指定列名列表；AddRow 按顺序添加一行值。
-	// SHOW FULL COLUMNS 返回 8 列：Field, Type, Null, Key, Default, Extra, Privileges, Comment
-	rows := sqlmock.NewRows([]string{"Field", "Type", "Null", "Key", "Default", "Extra", "Privileges", "Comment"}).
-		AddRow("id", "bigint", "NO", "PRI", nil, "auto_increment", "", "主键").
-		AddRow("name", "varchar(64)", "YES", "", nil, "", "", "姓名")
+	// SHOW FULL COLUMNS 返回 9 列：Field, Type, Collation, Null, Key, Default, Extra, Privileges, Comment
+	rows := sqlmock.NewRows([]string{"Field", "Type", "Collation", "Null", "Key", "Default", "Extra", "Privileges", "Comment"}).
+		AddRow("id", "bigint", nil, "NO", "PRI", nil, "auto_increment", "", "主键").
+		AddRow("name", "varchar(64)", "utf8mb4_general_ci", "YES", "", nil, "", "", "姓名")
 	// ExpectQuery 注册"期望收到一条 SQL 含此子串的查询"；WillReturnRows 指定返回值。
 	mock.ExpectQuery("SHOW FULL COLUMNS FROM").WillReturnRows(rows)
 

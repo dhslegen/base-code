@@ -42,8 +42,8 @@ func NewMySQL(db *sql.DB) TableScanner {
 //	rows.Err()                   // 检查迭代过程中是否发生了 IO 错误
 func (s mySQLScanner) ScanTable(table string) (model.TableMetadata, error) {
 	// SHOW FULL COLUMNS 比 DESCRIBE 多返回 Privileges 和 Comment 两列。
-	// 注意：表名来自可信配置（yml 文件），这里用 Sprintf 拼接；
-	//       如需防 SQL 注入，可加白名单校验（正则 `^[a-zA-Z0-9_]+$`）。
+	// 注意：表名来自 --tables 命令行参数（可信输入；如需更严可加白名单校验，正则 `^[a-zA-Z0-9_]+$`），
+	//       这里用 Sprintf 拼接。
 	rows, err := s.db.Query(fmt.Sprintf("SHOW FULL COLUMNS FROM `%s`", table))
 	if err != nil {
 		return model.TableMetadata{}, fmt.Errorf("SHOW COLUMNS %s 失败: %w", table, err)
@@ -54,13 +54,14 @@ func (s mySQLScanner) ScanTable(table string) (model.TableMetadata, error) {
 
 	var cols []model.ColumnMetadata
 	for rows.Next() {
-		// SHOW FULL COLUMNS 返回 8 列。
-		// sql.NullString 用于可能为 NULL 的列（Default 列允许 NULL）：
+		// SHOW FULL COLUMNS 列顺序：Field, Type, Collation, Null, Key, Default, Extra, Privileges, Comment（共 9 列）。
+		// sql.NullString 用于可能为 NULL 的列（Collation 在非字符串类型列上为 NULL，Default 列允许 NULL）：
 		//   type NullString struct { String string; Valid bool }
 		//   Valid=false 表示数据库返回 NULL；Valid=true 时 String 是实际值。
 		var field, typ, null, key, extra, priv, comment string
-		var def sql.NullString
-		if err := rows.Scan(&field, &typ, &null, &key, &def, &extra, &priv, &comment); err != nil {
+		var collation, def sql.NullString // collation/def 在某些列上可能为 NULL，用 NullString 承接
+		// SHOW FULL COLUMNS 9 列依次：Field, Type, Collation, Null, Key, Default, Extra, Privileges, Comment
+		if err := rows.Scan(&field, &typ, &collation, &null, &key, &def, &extra, &priv, &comment); err != nil {
 			return model.TableMetadata{}, fmt.Errorf("扫描列 [%s] 失败: %w", table, err)
 		}
 		cols = append(cols, model.ColumnMetadata{

@@ -17,7 +17,7 @@
 //     测试时传 bytes.Buffer，main 传 os.Stdout，代码一字不改——这是"依赖接口"的典型好处。
 //   - filepath.Join：跨平台路径拼接（Windows 用 \，Unix 用 /），不要手动拼字符串。
 //   - os.MkdirAll：等同于 mkdir -p，目录已存在不报错。
-//   - os.WriteFile：原子写文件（Go 1.16+），自动创建或覆盖。
+//   - os.WriteFile：覆盖写文件（Go 1.16+，非原子：中途失败可能留下截断文件），自动创建或覆盖。
 //   - 包级变量 since：由 main 注入，避免库代码调用 time.Now()——库内取系统时间会让测试非确定性。
 package generator
 
@@ -222,7 +222,7 @@ func Generate(cfg config.Config, meta model.TableMetadata, layers []string, dryR
 			return fmt.Errorf("创建目录 %s 失败: %w", filepath.Dir(path), err)
 		}
 
-		// os.WriteFile 写入文件（原子性：Go 1.16+）；0o644 = rw-r--r--
+		// os.WriteFile 覆盖写入文件（非原子：中途失败可能留下截断文件；Go 1.16+ 提供）；0o644 = rw-r--r--
 		if err := os.WriteFile(path, []byte(code), 0o644); err != nil {
 			return fmt.Errorf("写文件 %s 失败: %w", path, err)
 		}
