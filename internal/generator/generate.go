@@ -62,11 +62,11 @@ var Layers = map[string]LayerSpec{
 	"query":        {PkgSuffix: "model.query", NameSuffix: "Query", Ext: ".java"},    // 分页/条件查询对象
 	"converter":    {PkgSuffix: "converter", NameSuffix: "Converter", Ext: ".java"},  // DTO ↔ PO 转换器
 	"mapper-xml":   {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".xml", Resource: true}, // MyBatis XML，落 resources/mapper/
-	"req-dto":                 {PkgSuffix: "model.dto.req", NameSuffix: "ReqDto", Ext: ".java"},
-	"resp-dto":                {PkgSuffix: "model.dto.resp", NameSuffix: "RespDto", Ext: ".java"},
-	"query-req-dto":           {PkgSuffix: "model.dto.req", NameSuffix: "QueryReqDto", Ext: ".java"},
-	"page-query-req-dto":      {PkgSuffix: "model.dto.req", NameSuffix: "PageQueryReqDto", Ext: ".java"},
-	"update-by-query-req-dto": {PkgSuffix: "model.dto.req", NameSuffix: "UpdateByQueryReqDto", Ext: ".java"},
+	"req-dto":                 {PkgSuffix: "model.dto.req", NameSuffix: "ReqDto", Ext: ".java"},                 // 请求 DTO
+	"resp-dto":                {PkgSuffix: "model.dto.resp", NameSuffix: "RespDto", Ext: ".java"},               // 响应 DTO
+	"query-req-dto":           {PkgSuffix: "model.dto.req", NameSuffix: "QueryReqDto", Ext: ".java"},           // 查询请求 DTO
+	"page-query-req-dto":      {PkgSuffix: "model.dto.req", NameSuffix: "PageQueryReqDto", Ext: ".java"},      // 分页查询请求 DTO
+	"update-by-query-req-dto": {PkgSuffix: "model.dto.req", NameSuffix: "UpdateByQueryReqDto", Ext: ".java"}, // 按条件更新请求 DTO
 	"api":                      {PkgSuffix: "api", NameSuffix: "Api", Ext: ".java"},  // Feign RPC 接口
 	"api-impl":                 {PkgSuffix: "api.impl", NameSuffix: "ApiImpl", Ext: ".java"}, // Feign RPC 实现
 }

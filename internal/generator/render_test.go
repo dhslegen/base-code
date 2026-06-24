@@ -305,6 +305,11 @@ func TestRender_Api_PrunedIdempotency(t *testing.T) {
 			t.Errorf("api 不应出现已裁剪的 %q", banned)
 		}
 	}
+	endpoints := strings.Count(out, "@PostMapping") + strings.Count(out, "@GetMapping") +
+		strings.Count(out, "@PutMapping") + strings.Count(out, "@DeleteMapping")
+	if endpoints != 24 {
+		t.Errorf("api 应有 24 个端点映射，实得 %d", endpoints)
+	}
 }
 
 // TestRender_ApiImpl_PrunedAndReconciled 验证 api-impl 内联 Result、无幂等、delete 调 deleteById。

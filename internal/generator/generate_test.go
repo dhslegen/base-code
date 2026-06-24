@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/dahaoshen/base-code-go/internal/config"
@@ -248,6 +249,7 @@ func TestGenerate_DtoLayers(t *testing.T) {
 	checks := map[string]string{
 		filepath.Join(base, "req", "SysUserReqDto.java"):              "req",
 		filepath.Join(base, "resp", "SysUserRespDto.java"):            "resp",
+		filepath.Join(base, "req", "SysUserQueryReqDto.java"):         "query",
 		filepath.Join(base, "req", "SysUserPageQueryReqDto.java"):     "page",
 		filepath.Join(base, "req", "SysUserUpdateByQueryReqDto.java"): "update",
 	}
@@ -274,9 +276,9 @@ func TestSelectLayers(t *testing.T) {
 		}
 		return false
 	}
-	// 默认：全 14 层
-	if got := SelectLayers(false, false); len(got) != 14 {
-		t.Errorf("默认应 14 层，得 %d: %v", len(got), got)
+	// 默认：全 14 层，且成员与顺序与 AllLayers() 完全一致
+	if got := SelectLayers(false, false); !reflect.DeepEqual(got, AllLayers()) {
+		t.Errorf("默认应等于 AllLayers()（全14层同序），得 %v", got)
 	}
 	// withoutApi：不含 api/api-impl/dto
 	wa := SelectLayers(false, true)
