@@ -281,3 +281,28 @@ func TestRender_UpdateByQueryReqDto(t *testing.T) {
 		}
 	}
 }
+
+// TestRender_Api_PrunedIdempotency 验证 api 接口含核心端点、内联 Result、无幂等端点。
+func TestRender_Api_PrunedIdempotency(t *testing.T) {
+	out, err := Render("api", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"import com.dahaoshen.restcore.Result;",
+		"public interface SysUserApi {",
+		"@FeignClient(name = ApiConstants.NAME)",
+		`@PostMapping(PREFIX + "/create")`,
+		"Result<SysUserRespDto> create(",
+		"Result<Boolean> existsByQuery(",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("api 缺少 %q:\n%s", want, out)
+		}
+	}
+	for _, banned := range []string{"createIdempotency", "updateByIdIdempotency", "saveOrUpdateIdempotency", "LockConditionReqDto"} {
+		if strings.Contains(out, banned) {
+			t.Errorf("api 不应出现已裁剪的 %q", banned)
+		}
+	}
+}

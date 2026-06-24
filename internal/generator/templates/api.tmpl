@@ -1,0 +1,154 @@
+package {{.BasePackage}}.api;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dahaoshen.restcore.Result;
+import {{.BasePackage}}.constants.ApiConstants;
+import {{.BasePackage}}.model.dto.req.*;
+import {{.BasePackage}}.model.dto.resp.{{.ModelUpperCamel}}RespDto;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+{{if .UseJakarta}}import jakarta.validation.Valid;{{else}}import javax.validation.Valid;{{end}}
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * {{.ModelComment}} API
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@FeignClient(name = ApiConstants.NAME)
+@Tag(name = "RPC 服务 - {{.ModelComment}}")
+public interface {{.ModelUpperCamel}}Api {
+
+    /** {{.ModelComment}} API 前缀 */
+    String PREFIX = ApiConstants.PREFIX + "/{{.ModelKebab}}";
+
+    // region 自动生成代码区,后续手动添加的代码要放在这个区域之外
+
+    /** 创建{{.ModelComment}} */
+    @PostMapping(PREFIX + "/create")
+    @Operation(summary = "创建{{.ModelComment}}")
+    Result<{{.ModelUpperCamel}}RespDto> create(@Valid @RequestBody {{.ModelUpperCamel}}ReqDto reqDto);
+
+    /** 批量创建{{.ModelComment}} */
+    @PostMapping(PREFIX + "/batchCreate")
+    @Operation(summary = "批量创建{{.ModelComment}}")
+    Result<Boolean> batchCreate(@Valid @RequestBody List<{{.ModelUpperCamel}}ReqDto> reqDtos);
+
+    /** 通过ID获取{{.ModelComment}} */
+    @GetMapping(PREFIX + "/get-by-id")
+    @Operation(summary = "通过ID获取{{.ModelComment}}")
+    Result<{{.ModelUpperCamel}}RespDto> getById(@Parameter(name = "id", description = "{{.ModelComment}}ID", required = true) @RequestParam("id") {{.IdType}} id);
+
+    /** 获取全部{{.ModelComment}}列表 */
+    @GetMapping(PREFIX + "/list-all")
+    @Operation(summary = "获取全部{{.ModelComment}}列表")
+    Result<List<{{.ModelUpperCamel}}RespDto>> listAll();
+
+    /** 获取指定ID集合的{{.ModelComment}}列表 */
+    @GetMapping(PREFIX + "/list-by-ids")
+    @Operation(summary = "获取指定ID集合的{{.ModelComment}}列表")
+    Result<List<{{.ModelUpperCamel}}RespDto>> listByIds(@Valid @RequestBody @Parameter(name = "ids", description = "{{.ModelComment}}ID数组", example = "1,2", required = true) List<{{.IdType}}> ids);
+
+    /** 更新{{.ModelComment}} */
+    @PutMapping(PREFIX + "/update")
+    @Operation(summary = "更新{{.ModelComment}}")
+    Result<Boolean> updateById(@Valid @RequestBody {{.ModelUpperCamel}}ReqDto reqDto);
+
+    /** 批量更新{{.ModelComment}} */
+    @PutMapping(PREFIX + "/batch-update-by-id")
+    @Operation(summary = "批量更新{{.ModelComment}}")
+    Result<Boolean> batchUpdateById(@Valid @RequestBody List<{{.ModelUpperCamel}}ReqDto> reqDtos);
+
+    /** 通过ID删除{{.ModelComment}} */
+    @DeleteMapping(PREFIX + "/delete")
+    @Operation(summary = "通过ID删除{{.ModelComment}}")
+    Result<Boolean> delete(@Parameter(name = "id", description = "{{.ModelComment}}ID", required = true) @RequestParam("id") {{.IdType}} id);
+
+    /** 批量删除{{.ModelComment}} */
+    @PostMapping(PREFIX + "/batch-delete")
+    @Operation(summary = "批量删除{{.ModelComment}}")
+    Result<Boolean> batchDelete(@Valid @RequestBody @Parameter(name = "ids", description = "{{.ModelComment}}ID数组", example = "1,2", required = true) List<{{.IdType}}> ids);
+
+    /** 通过查询条件分页获取{{.ModelComment}} */
+    @PostMapping(PREFIX + "/page-by-query")
+    @Operation(summary = "通过查询条件分页获取{{.ModelComment}}")
+    Result<Page<{{.ModelUpperCamel}}RespDto>> pageByQuery(@Valid @RequestBody {{.ModelUpperCamel}}PageQueryReqDto pageQueryReqDto);
+
+    /** 分页获取全部{{.ModelComment}} */
+    @PostMapping(PREFIX + "/page-all")
+    @Operation(summary = "分页获取全部{{.ModelComment}}")
+    Result<Page<{{.ModelUpperCamel}}RespDto>> pageAll(@Valid @RequestBody PageQueryReqDto pageQueryReqDto);
+
+    /** 获取ID和{{.ModelComment}}的映射 */
+    @PostMapping(PREFIX + "/get-id-map")
+    @Operation(summary = "获取ID和{{.ModelComment}}的映射")
+    Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMap();
+
+    /** 获取指定ID集合的ID和{{.ModelComment}}的映射 */
+    @PostMapping(PREFIX + "/get-id-map-by-ids")
+    @Operation(summary = "获取指定ID集合的ID和{{.ModelComment}}的映射")
+    Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMapByIds(@Valid @RequestBody @Parameter(name = "ids", description = "{{.ModelComment}}ID数组", example = "1,2", required = true) List<{{.IdType}}> ids);
+
+    /** 获取ID和{{.ModelComment}}列表的映射 */
+    @PostMapping(PREFIX + "/get-id-group")
+    @Operation(summary = "获取ID和{{.ModelComment}}列表的映射")
+    Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroup();
+
+    /** 获取指定ID集合的ID和{{.ModelComment}}列表的映射 */
+    @PostMapping(PREFIX + "/get-id-group-by-ids")
+    @Operation(summary = "获取指定ID集合的ID和{{.ModelComment}}列表的映射")
+    Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroupByIds(@Valid @RequestBody @Parameter(name = "ids", description = "{{.ModelComment}}ID数组", example = "1,2", required = true) List<{{.IdType}}> ids);
+
+    /** 获取全部{{.ModelComment}}数量 */
+    @PostMapping(PREFIX + "/count-all")
+    @Operation(summary = "获取全部{{.ModelComment}}数量")
+    Result<Long> countAll();
+
+    /** 通过查询条件修改{{.ModelComment}} */
+    @PutMapping(PREFIX + "/update-by-query")
+    @Operation(summary = "通过查询条件修改{{.ModelComment}}")
+    Result<Boolean> updateByQuery(@Valid @RequestBody {{.ModelUpperCamel}}UpdateByQueryReqDto updateByQueryReqDto);
+
+    /** 通过查询条件删除{{.ModelComment}} */
+    @DeleteMapping(PREFIX + "/remove-by-query")
+    @Operation(summary = "通过查询条件删除{{.ModelComment}}")
+    Result<Boolean> removeByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 通过查询条件获取{{.ModelComment}} */
+    @PostMapping(PREFIX + "/get-by-query")
+    @Operation(summary = "通过查询条件获取{{.ModelComment}}")
+    Result<{{.ModelUpperCamel}}RespDto> getByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 通过查询条件获取{{.ModelComment}}列表 */
+    @PostMapping(PREFIX + "/list-by-query")
+    @Operation(summary = "通过查询条件获取{{.ModelComment}}列表")
+    Result<List<{{.ModelUpperCamel}}RespDto>> listByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 通过查询条件获取ID和{{.ModelComment}}的映射 */
+    @PostMapping(PREFIX + "/get-id-map-by-query")
+    @Operation(summary = "通过查询条件获取ID和{{.ModelComment}}的映射")
+    Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMapByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 通过查询条件获取分组的{{.ModelComment}} */
+    @PostMapping(PREFIX + "/get-id-group-by-query")
+    @Operation(summary = "通过查询条件获取分组的{{.ModelComment}}")
+    Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroupByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 通过查询条件获取{{.ModelComment}}数量 */
+    @PostMapping(PREFIX + "/count-by-query")
+    @Operation(summary = "通过查询条件获取{{.ModelComment}}数量")
+    Result<Long> countByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    /** 检查是否存在符合查询条件的{{.ModelComment}} */
+    @PostMapping(PREFIX + "/exists-by-query")
+    @Operation(summary = "检查是否存在符合查询条件的{{.ModelComment}}")
+    Result<Boolean> existsByQuery(@Valid @RequestBody {{.ModelUpperCamel}}QueryReqDto queryReqDto);
+
+    // endregion 自动生成代码区,后续手动添加的代码要放在这个区域之外
+}

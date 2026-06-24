@@ -67,6 +67,7 @@ var Layers = map[string]LayerSpec{
 	"query-req-dto":           {PkgSuffix: "model.dto.req", NameSuffix: "QueryReqDto", Ext: ".java"},
 	"page-query-req-dto":      {PkgSuffix: "model.dto.req", NameSuffix: "PageQueryReqDto", Ext: ".java"},
 	"update-by-query-req-dto": {PkgSuffix: "model.dto.req", NameSuffix: "UpdateByQueryReqDto", Ext: ".java"},
+	"api":                      {PkgSuffix: "api", NameSuffix: "Api", Ext: ".java"},  // Feign RPC 接口
 }
 
 // ResolveResourcesRoot 由 java 源根派生 resources 根：把末段 src/main/java 换成 src/main/resources。
