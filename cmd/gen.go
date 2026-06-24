@@ -24,10 +24,12 @@ import (
 // flag 变量：cobra 会把命令行 --config=xxx 等解析结果写入这些变量。
 // 包级变量（package-level var）在命令执行前已由 init() 绑定到对应 flag。
 var (
-	flagConfig  string // --config：配置文件路径
-	flagTables  string // --tables：逗号分隔的表名（必填）
-	flagDialect string // --dialect：覆盖配置文件中的方言
-	flagDryRun  bool   // --dry-run：只打印到终端，不落盘
+	flagConfig          string // --config：配置文件路径
+	flagTables          string // --tables：逗号分隔的表名（必填）
+	flagDialect         string // --dialect：覆盖配置文件中的方言
+	flagDryRun          bool   // --dry-run：只打印到终端，不落盘
+	flagOnlyTableModify bool   // --only-table-modify：仅生成改表影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
+	flagWithoutApi      bool   // --without-api：不生成 API 相关层，保留后端内部层（service/service-impl/po/query/mapper/mapper-xml）
 )
 
 // genCmd 是 `base-code gen` 子命令。
@@ -77,9 +79,12 @@ var genCmd = &cobra.Command{
 			return err
 		}
 
-		// 7. 遍历表，逐表生成 M2-A 非 API 后端 7 层（po / mapper / service / service-impl / query / converter / mapper-xml）
-		// M2-B 将再加 api / dto 以及 --without-api / --only-table-modify 过滤 flag
-		layers := []string{"po", "mapper", "service", "service-impl", "query", "converter", "mapper-xml"}
+		// 7. 遍历表，逐表生成代码层。
+		// M2-B-2：默认生成全 14 层；--without-api / --only-table-modify 按交集过滤
+		// Go 小白知识点：SelectLayers 已在 generator 包导出，这里直接调用——
+		// 两个 flag 默认均为 false，此时 SelectLayers(false,false) 返回全 14 层，
+		// 完全替代原来硬编码的 7 层切片，保持向后兼容同时支持新过滤模式。
+		layers := generator.SelectLayers(flagOnlyTableModify, flagWithoutApi)
 		for _, t := range splitTables(flagTables) {
 			meta, err := sc.ScanTable(t)
 			if err != nil {
@@ -101,6 +106,8 @@ func init() {
 	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名（必填）")
 	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "覆盖配置中的方言")
 	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印不落盘")
+	genCmd.Flags().BoolVar(&flagOnlyTableModify, "only-table-modify", false, "仅生成改表影响的层")
+	genCmd.Flags().BoolVar(&flagWithoutApi, "without-api", false, "不生成 API 相关层")
 
 	// MarkFlagRequired 标记 --tables 为必填。
 	// 若用户未提供 --tables，cobra 在 RunE 调用前就打印错误并退出（不进入 RunE）。

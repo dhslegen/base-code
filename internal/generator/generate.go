@@ -275,6 +275,55 @@ func Generate(cfg config.Config, meta model.TableMetadata, layers []string, dryR
 	return nil
 }
 
+// AllLayers 返回全部 14 层，固定生成顺序（po 优先、api 收尾，便于阅读产物）。
+//
+// 设计原则：顺序固定（而非遍历 Layers map），因为 map 遍历在 Go 中是随机序——
+// 如果直接 range Layers，每次调用的输出顺序不同，对用户体验（diff、日志）不友好。
+// 用切片显式定义顺序，保证稳定输出。
+func AllLayers() []string {
+	return []string{
+		"po", "mapper", "mapper-xml", "service", "service-impl", "query", "converter",
+		"req-dto", "resp-dto", "query-req-dto", "page-query-req-dto", "update-by-query-req-dto",
+		"api", "api-impl",
+	}
+}
+
+// onlyTableModifySet / withoutApiSet 复现 Java BaseCodeApplication 的层过滤集合。
+//
+// Go 小白知识点：map[string]bool 当集合用（O(1) 成员判断），比 []string 线性扫描快；
+// 包级 var 只初始化一次，整个程序生命周期共享，不会重复 alloc。
+var onlyTableModifySet = map[string]bool{
+	"po": true, "req-dto": true, "resp-dto": true,
+	"mapper-xml": true, "query": true, "query-req-dto": true,
+}
+var withoutApiSet = map[string]bool{
+	"service": true, "service-impl": true, "po": true,
+	"query": true, "mapper": true, "mapper-xml": true,
+}
+
+// SelectLayers 按两个开关对全集做交集过滤：
+//   - 默认（两者 false）：返回全 14 层。
+//   - onlyTableModify=true：仅保留"改表影响层"（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）。
+//   - withoutApi=true：仅保留"非 API 层"（service/service-impl/po/query/mapper/mapper-xml）。
+//   - 两者同时 true：取交集（po/query/mapper-xml 这 3 层）。
+//
+// Go 小白知识点：用 map 做集合（值恒 true）做 O(1) 成员判断，按 AllLayers() 全集顺序过滤
+// 以保持稳定输出顺序（map 遍历是随机序，切片遍历是稳定序）。
+func SelectLayers(onlyTableModify, withoutApi bool) []string {
+	var out []string
+	for _, layer := range AllLayers() {
+		// 任一过滤集拒绝该层，则跳过；两者都开启则同时检查（取交集）
+		if onlyTableModify && !onlyTableModifySet[layer] {
+			continue
+		}
+		if withoutApi && !withoutApiSet[layer] {
+			continue
+		}
+		out = append(out, layer)
+	}
+	return out
+}
+
 // toLowerSet 把字符串切片转成小写集合（map[string]bool），用于 O(1) 大小写不敏感查找。
 // Go 小白知识点：Go 没有 Set 类型，惯用 map[KeyType]bool 模拟；value 用 true 表示"存在"。
 func toLowerSet(xs []string) map[string]bool {

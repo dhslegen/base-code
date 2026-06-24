@@ -257,3 +257,57 @@ func TestGenerate_DtoLayers(t *testing.T) {
 		}
 	}
 }
+
+// TestSelectLayers 验证层过滤交集逻辑（复现 Java BaseCodeApplication）。
+//
+// Go 小白知识点：
+//   - 辅助函数 contains 对切片做线性扫描（O(n)），仅用于测试断言，无性能要求。
+//   - 测试函数命名 TestXxx，参数固定为 *testing.T，go test 自动识别并执行。
+//   - 通过多个子场景（默认/withoutApi/onlyTableModify/两者）在同一测试函数内覆盖多条路径，
+//     避免重复 boilerplate（测试也讲 DRY）。
+func TestSelectLayers(t *testing.T) {
+	contains := func(xs []string, v string) bool {
+		for _, x := range xs {
+			if x == v {
+				return true
+			}
+		}
+		return false
+	}
+	// 默认：全 14 层
+	if got := SelectLayers(false, false); len(got) != 14 {
+		t.Errorf("默认应 14 层，得 %d: %v", len(got), got)
+	}
+	// withoutApi：不含 api/api-impl/dto
+	wa := SelectLayers(false, true)
+	for _, must := range []string{"po", "service-impl", "mapper-xml"} {
+		if !contains(wa, must) {
+			t.Errorf("--without-api 应含 %q", must)
+		}
+	}
+	for _, no := range []string{"api", "api-impl", "req-dto"} {
+		if contains(wa, no) {
+			t.Errorf("--without-api 不应含 %q", no)
+		}
+	}
+	// onlyTableModify：含 req-dto/resp-dto，不含 service
+	otm := SelectLayers(true, false)
+	for _, must := range []string{"po", "req-dto", "resp-dto", "query-req-dto"} {
+		if !contains(otm, must) {
+			t.Errorf("--only-table-modify 应含 %q", must)
+		}
+	}
+	if contains(otm, "service") {
+		t.Error("--only-table-modify 不应含 service")
+	}
+	// 两者交集 = {po, query, mapper-xml}
+	both := SelectLayers(true, true)
+	if len(both) != 3 {
+		t.Errorf("两者交集应 3 层，得 %v", both)
+	}
+	for _, must := range []string{"po", "query", "mapper-xml"} {
+		if !contains(both, must) {
+			t.Errorf("交集应含 %q", must)
+		}
+	}
+}
