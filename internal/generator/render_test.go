@@ -76,6 +76,12 @@ func TestRender_Service_InlinedAndPruned(t *testing.T) {
 			t.Errorf("service 不应再出现已裁剪的 %q", banned)
 		}
 	}
+	// 接口须声明与 service-impl @Override 对齐的 21 个方法
+	for _, want := range []string{"existsByQuery", "getByQuery", "updateByQuery", "getIdGroupByQuery", "getIdMapByIds"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("service 接口应声明 %q（与 service-impl 的 @Override 对齐）:\n%s", want, out)
+		}
+	}
 }
 
 // TestRender_Po_AutoFill 验证 autoFill 字段渲染 fill = FieldFill.INSERT，
@@ -128,7 +134,7 @@ func TestRender_ServiceImpl_InlinedAndPruned(t *testing.T) {
 			t.Errorf("service-impl 缺少 %q:\n%s", want, out)
 		}
 	}
-	for _, banned := range []string{"createIdempotency", "LockCondition", "DistributedLock", "SuperServiceImpl"} {
+	for _, banned := range []string{"createIdempotency", "LockCondition", "DistributedLock", "SuperServiceImpl", "updateByIdIdempotency", "saveOrUpdateIdempotency"} {
 		if strings.Contains(out, banned) {
 			t.Errorf("service-impl 不应出现已裁剪的 %q", banned)
 		}
@@ -152,7 +158,7 @@ func TestRender_Query(t *testing.T) {
 	}
 }
 
-// TestRender_Converter 验证 converter 的 MapStruct 接口与四个映射方法。
+// TestRender_Converter 验证 converter 的 MapStruct 接口与五个映射方法。
 func TestRender_Converter(t *testing.T) {
 	out, err := Render("converter", sampleData())
 	if err != nil {
@@ -163,6 +169,7 @@ func TestRender_Converter(t *testing.T) {
 		"Mappers.getMapper(SysUserConverter.class)",
 		"SysUserRespDto toRespDto(SysUser sysUser)",
 		"SysUserQuery fromQueryReqDtoToQuery(SysUserQueryReqDto sysUserQueryReqDto)",
+		"List<SysUserRespDto> toRespDto(List<SysUser>",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("converter 缺少 %q:\n%s", want, out)
@@ -191,5 +198,8 @@ func TestRender_MapperXml(t *testing.T) {
 	// Base_Column_List：两列应以逗号分隔且不以逗号结尾
 	if !strings.Contains(out, "id,") || !strings.Contains(out, "name") {
 		t.Errorf("Base_Column_List 应含逗号分隔的列:\n%s", out)
+	}
+	if strings.Contains(out, "name,") {
+		t.Errorf("Base_Column_List 末列不应有尾逗号:\n%s", out)
 	}
 }

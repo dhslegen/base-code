@@ -52,7 +52,8 @@ type LayerSpec struct {
 // Generate/OutputPath 等编排代码无需任何修改。
 //
 // Go 小白知识点：var xxx = map[K]V{...} 是包级变量初始化，
-// 整个程序生命周期内共享同一份 map，对外只读（没有暴露写入入口）。
+// 整个程序生命周期内共享同一份 map。约定上只读；但它是导出的包级 map，
+// 语言层面 importer 仍可改写——约定不可变即可，无需额外防护。
 var Layers = map[string]LayerSpec{
 	"po":           {PkgSuffix: "model.po", NameSuffix: "", Ext: ".java"},           // 实体类，文件名无后缀（如 SysUser.java）
 	"mapper":       {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".java"},        // MyBatis-Plus Mapper 接口

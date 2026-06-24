@@ -1,5 +1,5 @@
-// Package generator 负责把元数据渲染成 Java 代码字符串（po/mapper/service 三层）。
-// 核心流程：embed.FS 加载模板 → text/template 解析 → Execute 写入 bytes.Buffer → 返回字符串。
+// Package generator 负责把元数据渲染成代码字符串（po/mapper/service/service-impl/query/converter/mapper-xml 多层）。
+// 核心流程：embed.FS 加载模板 → text/template 解析 → Execute 写入 bytes.Buffer → 返回代码字符串（Java 或 XML）。
 package generator
 
 import (
@@ -53,8 +53,9 @@ var funcMap = template.FuncMap{
 	"capitalize": naming.Capitalize,
 }
 
-// Render 渲染指定层的 Java 代码模板，返回生成的代码字符串。
-// layer 取值："po" / "mapper" / "service"，对应 templates/<layer>.tmpl。
+// Render 渲染指定层的代码模板，返回生成的代码字符串（Java 或 XML）。
+// layer 取值："po" / "mapper" / "service" / "service-impl" / "query" / "converter" / "mapper-xml"，
+// 对应 templates/<layer>.tmpl。
 // Go 小白知识点：Go 惯例用 (value, error) 双返回值替代异常；调用方必须检查 error。
 func Render(layer string, data TemplateData) (string, error) {
 	name := layer + ".tmpl"
