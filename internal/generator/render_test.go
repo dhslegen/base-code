@@ -306,3 +306,26 @@ func TestRender_Api_PrunedIdempotency(t *testing.T) {
 		}
 	}
 }
+
+// TestRender_ApiImpl_PrunedAndReconciled 验证 api-impl 内联 Result、无幂等、delete 调 deleteById。
+func TestRender_ApiImpl_PrunedAndReconciled(t *testing.T) {
+	out, err := Render("api-impl", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"import com.dahaoshen.restcore.Result;",
+		"public class SysUserApiImpl implements SysUserApi {",
+		"sysUserService.deleteById(id)", // delete 端点应调 deleteById（已纠正）
+		"sysUserService.existsByQuery(query)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("api-impl 缺少 %q:\n%s", want, out)
+		}
+	}
+	for _, banned := range []string{"createIdempotency", "LockCondition", "DistributedLock", "projectKeyword", ".delete(id)"} {
+		if strings.Contains(out, banned) {
+			t.Errorf("api-impl 不应出现 %q", banned)
+		}
+	}
+}

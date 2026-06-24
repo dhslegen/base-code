@@ -1,0 +1,201 @@
+package {{.BasePackage}}.api.impl;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dahaoshen.restcore.Result;
+import {{.BasePackage}}.api.{{.ModelUpperCamel}}Api;
+import {{.BasePackage}}.converter.{{.ModelUpperCamel}}Converter;
+import {{.BasePackage}}.model.dto.req.*;
+import {{.BasePackage}}.model.dto.resp.{{.ModelUpperCamel}}RespDto;
+import {{.BasePackage}}.model.po.{{.ModelUpperCamel}};
+import {{.BasePackage}}.model.query.{{.ModelUpperCamel}}Query;
+import {{.BasePackage}}.service.{{.ModelUpperCamel}}Service;
+{{if .UseJakarta}}import jakarta.annotation.Resource;{{else}}import javax.annotation.Resource;{{end}}
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * {{.ModelComment}} API 实现类
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@RestController
+@Validated
+public class {{.ModelUpperCamel}}ApiImpl implements {{.ModelUpperCamel}}Api {
+
+    @Resource
+    private {{.ModelUpperCamel}}Service {{.ModelCamel}}Service;
+
+    // region 自动生成代码区,后续手动添加的代码要放在这个区域之外
+
+    @Override
+    public Result<{{.ModelUpperCamel}}RespDto> create({{.ModelUpperCamel}}ReqDto reqDto) {
+        {{.ModelUpperCamel}} entity = {{.ModelUpperCamel}}Converter.INSTANCE.fromReqDto(reqDto);
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto({{.ModelCamel}}Service.create(entity)));
+    }
+
+    @Override
+    public Result<Boolean> batchCreate(List<{{.ModelUpperCamel}}ReqDto> reqDtos) {
+        List<{{.ModelUpperCamel}}> list = {{.ModelUpperCamel}}Converter.INSTANCE.fromReqDto(reqDtos);
+        return Result.ok({{.ModelCamel}}Service.batchCreate(list));
+    }
+
+    @Override
+    public Result<{{.ModelUpperCamel}}RespDto> getById({{.IdType}} id) {
+        {{.ModelUpperCamel}} entity = {{.ModelCamel}}Service.getById(id);
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(entity));
+    }
+
+    @Override
+    public Result<List<{{.ModelUpperCamel}}RespDto>> listAll() {
+        List<{{.ModelUpperCamel}}> list = {{.ModelCamel}}Service.listAll();
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(list));
+    }
+
+    @Override
+    public Result<List<{{.ModelUpperCamel}}RespDto>> listByIds(List<{{.IdType}}> ids) {
+        List<{{.ModelUpperCamel}}> list = {{.ModelCamel}}Service.listByIds(ids);
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(list));
+    }
+
+    @Override
+    public Result<Boolean> updateById({{.ModelUpperCamel}}ReqDto reqDto) {
+        {{.ModelUpperCamel}} entity = {{.ModelUpperCamel}}Converter.INSTANCE.fromReqDto(reqDto);
+        return Result.ok({{.ModelCamel}}Service.updateById(entity));
+    }
+
+    @Override
+    public Result<Boolean> batchUpdateById(List<{{.ModelUpperCamel}}ReqDto> reqDtos) {
+        List<{{.ModelUpperCamel}}> list = {{.ModelUpperCamel}}Converter.INSTANCE.fromReqDto(reqDtos);
+        return Result.ok({{.ModelCamel}}Service.batchUpdateById(list));
+    }
+
+    @Override
+    public Result<Boolean> delete({{.IdType}} id) {
+        return Result.ok({{.ModelCamel}}Service.deleteById(id));
+    }
+
+    @Override
+    public Result<Boolean> batchDelete(List<{{.IdType}}> ids) {
+        return Result.ok({{.ModelCamel}}Service.batchDelete(ids));
+    }
+
+    @Override
+    public Result<Page<{{.ModelUpperCamel}}RespDto>> pageByQuery({{.ModelUpperCamel}}PageQueryReqDto pageQueryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(pageQueryReqDto);
+        Page<{{.ModelUpperCamel}}> page = {{.ModelCamel}}Service.pageByQuery(pageQueryReqDto.getCurrent(), pageQueryReqDto.getSize(), query);
+        Page<{{.ModelUpperCamel}}RespDto> respPage = (Page<{{.ModelUpperCamel}}RespDto>) page.convert({{.ModelUpperCamel}}Converter.INSTANCE::toRespDto);
+        return Result.ok(respPage);
+    }
+
+    @Override
+    public Result<Page<{{.ModelUpperCamel}}RespDto>> pageAll(PageQueryReqDto pageQueryReqDto) {
+        Page<{{.ModelUpperCamel}}> page = {{.ModelCamel}}Service.pageAll(pageQueryReqDto.getCurrent(), pageQueryReqDto.getSize());
+        Page<{{.ModelUpperCamel}}RespDto> respPage = (Page<{{.ModelUpperCamel}}RespDto>) page.convert({{.ModelUpperCamel}}Converter.INSTANCE::toRespDto);
+        return Result.ok(respPage);
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMap() {
+        Map<{{.IdType}}, {{.ModelUpperCamel}}> map = {{.ModelCamel}}Service.getIdMap();
+        Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMapByIds(List<{{.IdType}}> ids) {
+        Map<{{.IdType}}, {{.ModelUpperCamel}}> map = {{.ModelCamel}}Service.getIdMapByIds(ids);
+        Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroup() {
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> map = {{.ModelCamel}}Service.getIdGroup();
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroupByIds(List<{{.IdType}}> ids) {
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> map = {{.ModelCamel}}Service.getIdGroupByIds(ids);
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Long> countAll() {
+        long count = {{.ModelCamel}}Service.countAll();
+        return Result.ok(count);
+    }
+
+    @Override
+    public Result<Boolean> updateByQuery({{.ModelUpperCamel}}UpdateByQueryReqDto updateByQueryReqDto) {
+        {{.ModelUpperCamel}}QueryReqDto queryReqDto = updateByQueryReqDto.getQueryReqDto();
+        {{.ModelUpperCamel}}ReqDto reqDto = updateByQueryReqDto.getEntity();
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        {{.ModelUpperCamel}} entity = {{.ModelUpperCamel}}Converter.INSTANCE.fromReqDto(reqDto);
+        return Result.ok({{.ModelCamel}}Service.updateByQuery(entity, query));
+    }
+
+    @Override
+    public Result<Boolean> removeByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        return Result.ok({{.ModelCamel}}Service.removeByQuery(query));
+    }
+
+    @Override
+    public Result<{{.ModelUpperCamel}}RespDto> getByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        {{.ModelUpperCamel}} entity = {{.ModelCamel}}Service.getByQuery(query);
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(entity));
+    }
+
+    @Override
+    public Result<List<{{.ModelUpperCamel}}RespDto>> listByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        List<{{.ModelUpperCamel}}> list = {{.ModelCamel}}Service.listByQuery(query);
+        return Result.ok({{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(list));
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto>> getIdMapByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        Map<{{.IdType}}, {{.ModelUpperCamel}}> map = {{.ModelCamel}}Service.getIdMapByQuery(query);
+        Map<{{.IdType}}, {{.ModelUpperCamel}}RespDto> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>>> getIdGroupByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> map = {{.ModelCamel}}Service.getIdGroupByQuery(query);
+        Map<{{.IdType}}, List<{{.ModelUpperCamel}}RespDto>> respMap = map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> {{.ModelUpperCamel}}Converter.INSTANCE.toRespDto(e.getValue())));
+        return Result.ok(respMap);
+    }
+
+    @Override
+    public Result<Long> countByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        long count = {{.ModelCamel}}Service.countByQuery(query);
+        return Result.ok(count);
+    }
+
+    @Override
+    public Result<Boolean> existsByQuery({{.ModelUpperCamel}}QueryReqDto queryReqDto) {
+        {{.ModelUpperCamel}}Query query = {{.ModelUpperCamel}}Converter.INSTANCE.fromQueryReqDtoToQuery(queryReqDto);
+        return Result.ok({{.ModelCamel}}Service.existsByQuery(query));
+    }
+
+    // endregion 自动生成代码区,后续手动添加的代码要放在这个区域之外
+}
