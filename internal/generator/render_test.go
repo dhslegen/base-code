@@ -132,3 +132,38 @@ func TestRender_ServiceImpl_InlinedAndPruned(t *testing.T) {
 		}
 	}
 }
+
+// TestRender_Query 验证 query 对象渲染字段 @TableField 与 Serializable。
+func TestRender_Query(t *testing.T) {
+	out, err := Render("query", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"public class SysUserQuery implements Serializable",
+		`@TableField(value = "name")`,
+		"private String name;",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("query 缺少 %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestRender_Converter 验证 converter 的 MapStruct 接口与四个映射方法。
+func TestRender_Converter(t *testing.T) {
+	out, err := Render("converter", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"public interface SysUserConverter",
+		"Mappers.getMapper(SysUserConverter.class)",
+		"SysUserRespDto toRespDto(SysUser sysUser)",
+		"SysUserQuery fromQueryReqDtoToQuery(SysUserQueryReqDto sysUserQueryReqDto)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("converter 缺少 %q:\n%s", want, out)
+		}
+	}
+}

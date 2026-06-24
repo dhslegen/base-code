@@ -1,0 +1,34 @@
+package {{.BasePackage}}.model.query;
+
+import com.baomidou.mybatisplus.annotation.TableField;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+{{if .UseJakarta}}import java.io.Serial;
+{{end}}import java.io.Serializable;
+
+/**
+ * {{.ModelComment}}查询对象
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@Schema(description = "{{.ModelComment}}查询对象")
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class {{.ModelUpperCamel}}Query implements Serializable {
+{{range .Fields}}
+    /**
+     * {{.Comment}}
+     */
+    @Schema(description = "{{.Comment}}")
+    @TableField(value = "{{.TableField}}")
+    private {{.JavaType}} {{.Name}};
+{{end}}
+    {{if $.UseJakarta}}@Serial
+    {{end}}private static final long serialVersionUID = 1L;
+}
