@@ -77,8 +77,9 @@ var genCmd = &cobra.Command{
 			return err
 		}
 
-		// 7. 遍历表，逐表生成 M1 三层代码（po / mapper / service）
-		layers := []string{"po", "mapper", "service"} // M1 三层
+		// 7. 遍历表，逐表生成 M2-A 非 API 后端 7 层（po / mapper / service / service-impl / query / converter / mapper-xml）
+		// M2-B 将再加 api / dto 以及 --without-api / --only-table-modify 过滤 flag
+		layers := []string{"po", "mapper", "service", "service-impl", "query", "converter", "mapper-xml"}
 		for _, t := range splitTables(flagTables) {
 			meta, err := sc.ScanTable(t)
 			if err != nil {

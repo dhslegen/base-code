@@ -203,3 +203,30 @@ func TestGenerate_MapperXmlToResources(t *testing.T) {
 		t.Errorf("mapper-xml 应落到 %s: %v", xmlPath, err)
 	}
 }
+
+// TestGenerate_WithoutApiLayers 验证非 API 的 7 层全部能渲染并落盘（端到端冒烟，不连库）。
+//
+// 七层：po、mapper、service、service-impl、query、converter、mapper-xml。
+// 此测试确认 Task1-4 的基础设施完整：所有模板都能加载、所有层都有落盘路径、无 panic。
+// 抽查 service-impl 与 mapper-xml 两个代表性文件。
+//
+// Go 小白知识点：
+//   - 多个文件的验证通过 for 循环批量检查，减少重复代码。
+//   - 使用 []string{...} 承载层列表，与 cmd/gen.go 的实现保持对应。
+func TestGenerate_WithoutApiLayers(t *testing.T) {
+	root := t.TempDir()
+	javaRoot := filepath.Join(root, "src", "main", "java")
+	cfg := sampleCfg(javaRoot)
+	layers := []string{"po", "mapper", "service", "service-impl", "query", "converter", "mapper-xml"}
+	if err := Generate(cfg, sampleMeta(), layers, false, nil); err != nil {
+		t.Fatalf("7 层生成失败: %v", err)
+	}
+	// 抽查 service-impl 与 mapper-xml 两个代表
+	si := filepath.Join(root, "src", "main", "java", "com", "dahaoshen", "demo", "service", "impl", "SysUserServiceImpl.java")
+	xml := filepath.Join(root, "src", "main", "resources", "mapper", "SysUserMapper.xml")
+	for _, p := range []string{si, xml} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("应生成 %s: %v", p, err)
+		}
+	}
+}
