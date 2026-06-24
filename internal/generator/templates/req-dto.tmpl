@@ -1,0 +1,32 @@
+package {{.BasePackage}}.model.dto.req;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+{{if .UseJakarta}}import java.io.Serial;
+{{end}}import java.io.Serializable;
+
+/**
+ * {{.ModelComment}}请求 DTO
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@Schema(description = "{{.ModelComment}}请求 DTO")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class {{.ModelUpperCamel}}ReqDto implements Serializable {
+{{range .Fields}}
+    /**
+     * {{.Comment}}
+     */
+    @Schema(description = "{{.Comment}}")
+    private {{.JavaType}} {{.Name}};
+{{end}}
+    {{if $.UseJakarta}}@Serial
+    {{end}}private static final long serialVersionUID = 1L;
+}

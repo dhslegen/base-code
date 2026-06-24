@@ -203,3 +203,45 @@ func TestRender_MapperXml(t *testing.T) {
 		t.Errorf("Base_Column_List 末列不应有尾逗号:\n%s", out)
 	}
 }
+
+// TestRender_ReqDto 验证 req-dto 字段循环 + @Schema + Serializable。
+func TestRender_ReqDto(t *testing.T) {
+	out, err := Render("req-dto", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"public class SysUserReqDto implements Serializable",
+		`@Schema(description = "姓名")`,
+		"private String name;",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("req-dto 缺少 %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestRender_RespDto 验证 resp-dto 类名与字段。
+func TestRender_RespDto(t *testing.T) {
+	out, err := Render("resp-dto", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "public class SysUserRespDto implements Serializable") {
+		t.Errorf("resp-dto 类声明错误:\n%s", out)
+	}
+	if !strings.Contains(out, "package com.dahaoshen.demo.model.dto.resp;") {
+		t.Errorf("resp-dto 包名应为 model.dto.resp:\n%s", out)
+	}
+}
+
+// TestRender_QueryReqDto 验证 query-req-dto 类名。
+func TestRender_QueryReqDto(t *testing.T) {
+	out, err := Render("query-req-dto", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "public class SysUserQueryReqDto implements Serializable") {
+		t.Errorf("query-req-dto 类声明错误:\n%s", out)
+	}
+}

@@ -60,6 +60,9 @@ func TestOutputPath(t *testing.T) {
 		{"query", "/proj/src/main/java/com/dahaoshen/demo/model/query/SysUserQuery.java"},
 		{"converter", "/proj/src/main/java/com/dahaoshen/demo/converter/SysUserConverter.java"},
 		{"mapper-xml", "/proj/src/main/resources/mapper/SysUserMapper.xml"},
+		{"req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserReqDto.java"},
+		{"resp-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/resp/SysUserRespDto.java"},
+		{"query-req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserQueryReqDto.java"},
 	}
 	for _, tc := range cases {
 		got, err := OutputPath(tc.layer, "com.dahaoshen.demo", jr, rr, "SysUser")
