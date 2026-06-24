@@ -109,3 +109,26 @@ func TestRender_Po_NoJakarta(t *testing.T) {
 		t.Errorf("UseJakarta=false 不应出现 @Serial / java.io.Serial:\n%s", out)
 	}
 }
+
+// TestRender_ServiceImpl_InlinedAndPruned 验证 service-impl 内联 MaxServiceImpl、无幂等代码、主键方法引用正确。
+func TestRender_ServiceImpl_InlinedAndPruned(t *testing.T) {
+	out, err := Render("service-impl", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"com.dahaoshen.mybatismax.service.impl.MaxServiceImpl",
+		"extends MaxServiceImpl<SysUserMapper, SysUser>",
+		"implements SysUserService",
+		"toMap(list(), SysUser::getId)", // PkFieldUpperCamel=Id
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("service-impl 缺少 %q:\n%s", want, out)
+		}
+	}
+	for _, banned := range []string{"createIdempotency", "LockCondition", "DistributedLock", "SuperServiceImpl"} {
+		if strings.Contains(out, banned) {
+			t.Errorf("service-impl 不应出现已裁剪的 %q", banned)
+		}
+	}
+}

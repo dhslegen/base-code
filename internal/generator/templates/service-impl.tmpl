@@ -1,0 +1,150 @@
+package {{.BasePackage}}.service.impl;
+
+import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dahaoshen.mybatismax.service.impl.MaxServiceImpl;
+import {{.BasePackage}}.mapper.{{.ModelUpperCamel}}Mapper;
+import {{.BasePackage}}.model.po.{{.ModelUpperCamel}};
+import {{.BasePackage}}.model.query.{{.ModelUpperCamel}}Query;
+import {{.BasePackage}}.service.{{.ModelUpperCamel}}Service;
+{{if .UseJakarta}}import jakarta.annotation.Resource;{{else}}import javax.annotation.Resource;{{end}}
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * {{.ModelComment}} Service 实现类
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@SuppressWarnings("java:S6809")
+@Service
+public class {{.ModelUpperCamel}}ServiceImpl extends MaxServiceImpl<{{.ModelUpperCamel}}Mapper, {{.ModelUpperCamel}}> implements {{.ModelUpperCamel}}Service {
+
+    @Resource
+    {{.ModelUpperCamel}}Mapper {{.ModelCamel}}Mapper;
+
+    // region 自动生成代码区,后续手动添加的代码要放在这个区域之外
+
+    @Override
+    public {{.ModelUpperCamel}} create({{.ModelUpperCamel}} {{.ModelCamel}}) {
+        save({{.ModelCamel}});
+        return {{.ModelCamel}};
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean batchCreate(List<{{.ModelUpperCamel}}> {{.ModelCamel}}s) {
+        return saveBatch({{.ModelCamel}}s);
+    }
+
+    @Override
+    public List<{{.ModelUpperCamel}}> listAll() {
+        return list();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean batchUpdateById(List<{{.ModelUpperCamel}}> {{.ModelCamel}}s) {
+        return updateBatchById({{.ModelCamel}}s);
+    }
+
+    @Override
+    public Boolean deleteById({{.IdType}} id) {
+        return removeById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean batchDelete(List<{{.IdType}}> ids) {
+        return removeByIds(ids);
+    }
+
+    @Override
+    public Page<{{.ModelUpperCamel}}> pageByQuery(long current, long size, {{.ModelUpperCamel}}Query query) {
+        return page(Page.of(current, size), query);
+    }
+
+    @Override
+    public Page<{{.ModelUpperCamel}}> pageAll(long current, long size) {
+        return page(Page.of(current, size));
+    }
+
+    @Override
+    public Map<{{.IdType}}, {{.ModelUpperCamel}}> getIdMap() {
+        return toMap(list(), {{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}});
+    }
+
+    @Override
+    public Map<{{.IdType}}, {{.ModelUpperCamel}}> getIdMapByIds(List<{{.IdType}}> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return Collections.emptyMap();
+        }
+        return toMap(listByIds(ids), {{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}});
+    }
+
+    @Override
+    public Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> getIdGroup() {
+        return toGroup(list(), {{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}});
+    }
+
+    @Override
+    public Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> getIdGroupByIds(List<{{.IdType}}> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return Collections.emptyMap();
+        }
+        return toGroup(listByIds(ids), {{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}});
+    }
+
+    @Override
+    public Long countAll() {
+        return count();
+    }
+
+    @Override
+    public Boolean updateByQuery({{.ModelUpperCamel}} entity, {{.ModelUpperCamel}}Query query) {
+        return update(entity, query);
+    }
+
+    @Override
+    public Boolean removeByQuery({{.ModelUpperCamel}}Query query) {
+        return remove(query);
+    }
+
+    @Override
+    public {{.ModelUpperCamel}} getByQuery({{.ModelUpperCamel}}Query query) {
+        return get(query);
+    }
+
+    @Override
+    public List<{{.ModelUpperCamel}}> listByQuery({{.ModelUpperCamel}}Query query) {
+        return list(query);
+    }
+
+    @Override
+    public Map<{{.IdType}}, {{.ModelUpperCamel}}> getIdMapByQuery({{.ModelUpperCamel}}Query query) {
+        return toMap({{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}}, query);
+    }
+
+    @Override
+    public Map<{{.IdType}}, List<{{.ModelUpperCamel}}>> getIdGroupByQuery({{.ModelUpperCamel}}Query query) {
+        return toGroup({{.ModelUpperCamel}}::get{{.PkFieldUpperCamel}}, query);
+    }
+
+    @Override
+    public Long countByQuery({{.ModelUpperCamel}}Query query) {
+        return count(query);
+    }
+
+    @Override
+    public Boolean existsByQuery({{.ModelUpperCamel}}Query query) {
+        long count = count(query);
+        return count > 0;
+    }
+
+    // endregion 自动生成代码区,后续手动添加的代码要放在这个区域之外
+}
