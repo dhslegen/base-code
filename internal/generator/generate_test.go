@@ -43,22 +43,53 @@ func sampleCfg(out string) config.Config {
 	}
 }
 
-// TestOutputPath 验证按约定推导落盘路径：po 文件名无后缀，mapper/service 加首字母大写层名后缀。
+// TestOutputPath 验证 7 层的落盘路径：java 层按包路径、mapper-xml 落 resources/mapper 且不建包子目录。
+//
+// Go 小白知识点：filepath.FromSlash 把"/"统一转成当前 OS 的路径分隔符，
+// 让测试用例写成 Unix 风格 "/"，在 Windows 上也能正确比较 "\"。
 func TestOutputPath(t *testing.T) {
+	jr := filepath.FromSlash("/proj/src/main/java")
+	rr := filepath.FromSlash("/proj/src/main/resources")
 	cases := []struct {
-		layer string
-		want  string
+		layer, want string
 	}{
-		{"po", "/root/com/dahaoshen/demo/model/po/SysUser.java"},
-		{"mapper", "/root/com/dahaoshen/demo/mapper/SysUserMapper.java"},
-		{"service", "/root/com/dahaoshen/demo/service/SysUserService.java"},
+		{"po", "/proj/src/main/java/com/dahaoshen/demo/model/po/SysUser.java"},
+		{"mapper", "/proj/src/main/java/com/dahaoshen/demo/mapper/SysUserMapper.java"},
+		{"service", "/proj/src/main/java/com/dahaoshen/demo/service/SysUserService.java"},
+		{"service-impl", "/proj/src/main/java/com/dahaoshen/demo/service/impl/SysUserServiceImpl.java"},
+		{"query", "/proj/src/main/java/com/dahaoshen/demo/model/query/SysUserQuery.java"},
+		{"converter", "/proj/src/main/java/com/dahaoshen/demo/converter/SysUserConverter.java"},
+		{"mapper-xml", "/proj/src/main/resources/mapper/SysUserMapper.xml"},
 	}
 	for _, tc := range cases {
-		got := OutputPath(tc.layer, "com.dahaoshen.demo", "/root", "SysUser")
-		want := filepath.FromSlash(tc.want)
-		if got != want {
+		got, err := OutputPath(tc.layer, "com.dahaoshen.demo", jr, rr, "SysUser")
+		if err != nil {
+			t.Fatalf("layer=%s 意外错误: %v", tc.layer, err)
+		}
+		if want := filepath.FromSlash(tc.want); got != want {
 			t.Errorf("layer=%s: OutputPath = %q, want %q", tc.layer, got, want)
 		}
+	}
+	// 边界：未知层应返回 error（而非静默返回错误路径）
+	if _, err := OutputPath("nope", "com.x", jr, rr, "X"); err == nil {
+		t.Error("未知层应返回 error")
+	}
+}
+
+// TestResolveResourcesRoot 验证由 java 根派生 resources 根，配置优先。
+//
+// 两种路径：
+//  1. configured 为空 → 把 javaRoot 末段 src/main/java 换成 src/main/resources
+//  2. configured 非空 → 直接返回 configured（配置优先于约定）
+func TestResolveResourcesRoot(t *testing.T) {
+	jr := filepath.FromSlash("/proj/src/main/java")
+	// 场景 1：未配置 resources-root，自动由 java 根派生
+	if got := ResolveResourcesRoot(jr, ""); got != filepath.FromSlash("/proj/src/main/resources") {
+		t.Errorf("派生 = %q", got)
+	}
+	// 场景 2：显式配置优先，不做任何派生
+	if got := ResolveResourcesRoot(jr, "/custom/res"); got != "/custom/res" {
+		t.Errorf("配置优先 = %q", got)
 	}
 }
 

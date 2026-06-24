@@ -1,4 +1,4 @@
-// generate.go 是编排器：把「表元数据 + 配置」组装成 TemplateData，再按约定路径渲染落盘。
+// Package generator generate.go 是编排器：把「表元数据 + 配置」组装成 TemplateData，再按约定路径渲染落盘。
 // 与 render.go（模板渲染）和 templates.go（模板嵌入）处于同一包 generator 内，共享 TemplateData 定义。
 //
 // 核心流程：
@@ -35,14 +35,78 @@ import (
 	"github.com/dahaoshen/base-code-go/internal/typemap"
 )
 
-// LayerSuffix 是「层 → Java 包后缀」约定表。
-// M1 仅三层；M2 补齐 14 层时在此表里继续追加即可，Generate 代码无需修改（开闭原则）。
+// LayerSpec 描述一层的输出约定：包后缀、文件名在 ModelUpperCamel 后追加的后缀、扩展名、是否落 resources 根。
 //
-// 例：basePackage="com.dahaoshen.demo"，layer="po" → 包 com.dahaoshen.demo.model.po
-var LayerSuffix = map[string]string{
-	"po":      "model.po", // 实体类（Plain Object）层，放在 model.po 子包
-	"mapper":  "mapper",   // MyBatis-Plus Mapper 接口层
-	"service": "service",  // Service 接口层
+// Go 小白知识点：结构体（struct）是 Go 中聚合多字段的基本方式，类似 Java 的 POJO。
+// 这里用值类型（非指针），因为 LayerSpec 是不可变的配置描述，复制开销极低。
+type LayerSpec struct {
+	PkgSuffix  string // 包后缀，如 model.po；resource 层用作子目录（mapper → resources/mapper/）
+	NameSuffix string // 文件名后缀，如 ServiceImpl；po 层为空（文件名即 ModelUpperCamel）
+	Ext        string // 文件扩展名：.java 或 .xml
+	Resource   bool   // true 表示落 resources 根（如 mapper-xml），false 落 java 根
+}
+
+// Layers 是层 → 输出约定的全局约定表（M2-A 含非 API 的 7 层；M2-B 再补 api/dto）。
+//
+// 设计原则（开闭原则）：新增层只需在此追加一条 LayerSpec 记录，
+// Generate/OutputPath 等编排代码无需任何修改。
+//
+// Go 小白知识点：var xxx = map[K]V{...} 是包级变量初始化，
+// 整个程序生命周期内共享同一份 map，对外只读（没有暴露写入入口）。
+var Layers = map[string]LayerSpec{
+	"po":           {PkgSuffix: "model.po", NameSuffix: "", Ext: ".java"},           // 实体类，文件名无后缀（如 SysUser.java）
+	"mapper":       {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".java"},        // MyBatis-Plus Mapper 接口
+	"service":      {PkgSuffix: "service", NameSuffix: "Service", Ext: ".java"},      // Service 接口
+	"service-impl": {PkgSuffix: "service.impl", NameSuffix: "ServiceImpl", Ext: ".java"}, // Service 实现类
+	"query":        {PkgSuffix: "model.query", NameSuffix: "Query", Ext: ".java"},    // 分页/条件查询对象
+	"converter":    {PkgSuffix: "converter", NameSuffix: "Converter", Ext: ".java"},  // DTO ↔ PO 转换器
+	"mapper-xml":   {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".xml", Resource: true}, // MyBatis XML，落 resources/mapper/
+}
+
+// ResolveResourcesRoot 由 java 源根派生 resources 根：把末段 src/main/java 换成 src/main/resources。
+// 若 configured 非空则直接用它（配置优先于约定，便于非标准项目结构覆盖）。
+//
+// Go 小白知识点：filepath.Join 跨平台拼路径；strings.HasSuffix 检查字符串是否以某子串结尾。
+// 拼路径永远用 filepath.Join，不要手写 "/" 或 "\\"——Windows/Unix 共用同一套代码。
+func ResolveResourcesRoot(javaRoot, configured string) string {
+	if configured != "" {
+		return configured
+	}
+	// 标准 Maven 结构：src/main/java → src/main/resources
+	javaSuffix := filepath.Join("src", "main", "java")
+	resSuffix := filepath.Join("src", "main", "resources")
+	if strings.HasSuffix(javaRoot, javaSuffix) {
+		return javaRoot[:len(javaRoot)-len(javaSuffix)] + resSuffix
+	}
+	// 非标准结构兜底：与 javaRoot 同级的 resources（尽力而为）
+	return filepath.Join(filepath.Dir(javaRoot), "resources")
+}
+
+// OutputPath 由约定推导落盘路径。
+//   - java 层（Resource=false）：javaRoot + 包路径 + 文件名（含包子目录）
+//   - resource 层（Resource=true）：resourcesRoot + PkgSuffix（仅一级，不按完整包名建子目录）+ 文件名
+//
+// 返回 (path, error)：未知层（不在 Layers 表）返回 error，避免静默写错位置。
+//
+// Go 小白知识点：多返回值 (string, error) 是 Go 惯用的错误传递方式；
+// 调用方必须检查 error（编译器不强制，但 go vet/lint 会警告忽略 error）。
+func OutputPath(layer, basePackage, javaRoot, resourcesRoot, modelUpperCamel string) (string, error) {
+	spec, ok := Layers[layer]
+	if !ok {
+		// fmt.Errorf 创建带格式的 error，%q 在字符串两侧加引号，便于 debug
+		return "", fmt.Errorf("未知代码层: %q", layer)
+	}
+	file := modelUpperCamel + spec.NameSuffix + spec.Ext
+	if spec.Resource {
+		// resource 文件直接落 resourcesRoot/<PkgSuffix>/ —— 不按完整包名建层级子目录
+		// 例：mapper-xml → /proj/src/main/resources/mapper/SysUserMapper.xml
+		return filepath.Join(resourcesRoot, spec.PkgSuffix, file), nil
+	}
+	// java 文件按完整包名建子目录
+	// 例：po → com.dahaoshen.demo.model.po → com/dahaoshen/demo/model/po
+	pkg := basePackage + "." + spec.PkgSuffix
+	rel := strings.ReplaceAll(pkg, ".", string(filepath.Separator))
+	return filepath.Join(javaRoot, rel, file), nil
 }
 
 // since 是当天日期字符串（格式 yyyy-MM-dd），填入生成的 Java 文件 @since 注释。
@@ -54,42 +118,6 @@ var since = "" // 缺省空串；main 启动时通过 SetSince 赋值
 // SetSince 供 main 包调用，设置生成文件的日期戳（yyyy-MM-dd）。
 // 测试时无需调用——since="" 时模板里 @since 注释为空白，不影响功能正确性。
 func SetSince(s string) { since = s }
-
-// OutputPath 由约定推导文件落盘的绝对路径。
-//
-// 规则：
-//  1. 包路径 = basePackage + "." + LayerSuffix[layer]，点号换成路径分隔符
-//  2. 文件名 = modelUpperCamel + 层后缀（po 层无后缀；其余层首字母大写的层名）+ ".java"
-//
-// 示例：layer="po", basePackage="com.dahaoshen.demo", outputRoot="/root", model="SysUser"
-//
-//	→ /root/com/dahaoshen/demo/model/po/SysUser.java
-//
-// 示例：layer="mapper", basePackage="com.dahaoshen.demo", outputRoot="/root", model="SysUser"
-//
-//	→ /root/com/dahaoshen/demo/mapper/SysUserMapper.java
-func OutputPath(layer, basePackage, outputRoot, modelUpperCamel string) string {
-	// 1. 组装包名：com.dahaoshen.demo.model.po
-	pkg := basePackage + "." + LayerSuffix[layer]
-	// 2. 把包名里的点换成系统路径分隔符
-	//    filepath.Separator 在 Unix 是 '/'，Windows 是 '\\'
-	rel := strings.ReplaceAll(pkg, ".", string(filepath.Separator))
-	// 3. 拼文件名：po 层无后缀（SysUser.java），其余层加首字母大写层名（SysUserMapper.java）
-	file := modelUpperCamel + suffixForFile(layer) + ".java"
-	// 4. filepath.Join 跨平台安全地把各段拼成完整路径
-	return filepath.Join(outputRoot, rel, file)
-}
-
-// suffixForFile 决定文件名中的层后缀：
-//   - po 层：无后缀（实体类名就是 ModelUpperCamel 本身，如 SysUser）
-//   - 其他层：首字母大写的层名（naming.UpperCamel 处理驼峰，如 mapper→Mapper、service→Service）
-func suffixForFile(layer string) string {
-	if layer == "po" {
-		return ""
-	}
-	// naming.UpperCamel("mapper") = "Mapper"；若层名本已驼峰，此处也能正确处理
-	return naming.UpperCamel(layer)
-}
 
 // BuildTemplateData 把表元数据 + 配置组装成模板上下文（TemplateData）。
 //
@@ -158,8 +186,8 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 		BasePackage: cfg.BasePackage,
 
 		ModelUpperCamel: modelUpper,
-		ModelCamel:      naming.Camel(meta.TableName),     // sys_user → sysUser
-		ModelKebab:      naming.Kebab(modelUpper),          // SysUser → sys-user
+		ModelCamel:      naming.Camel(meta.TableName),               // sys_user → sysUser
+		ModelKebab:      naming.Kebab(modelUpper),                   // SysUser → sys-user
 		ModelComment:    strings.TrimSuffix(meta.TableComment, "表"), // "用户表" → "用户"
 
 		PkFieldUpperCamel: naming.Capitalize(pk.Name), // id → Id；userName → UserName
@@ -196,7 +224,12 @@ func Generate(cfg config.Config, meta model.TableMetadata, layers []string, dryR
 		return err
 	}
 
-	// 2. 按层逐一渲染并输出
+	// 2. 预先计算 resources 根（只算一次，避免每层重复计算）
+	// cfg.OutputRoot 是 java 根；cfg.ResourcesRoot 是可选的显式配置
+	// Go 小白知识点：对不变的值做"一次计算、多次使用"是常见的性能意识（虽然这里开销微乎其微）
+	resourcesRoot := ResolveResourcesRoot(cfg.OutputRoot, cfg.ResourcesRoot)
+
+	// 3. 按层逐一渲染并输出
 	for _, layer := range layers {
 		// 调用 render.go 的 Render，执行 text/template 渲染，返回 Java 代码字符串
 		code, err := Render(layer, data)
@@ -214,7 +247,11 @@ func Generate(cfg config.Config, meta model.TableMetadata, layers []string, dryR
 		}
 
 		// 落盘：推导目标路径 → 创建目录 → 写文件
-		path := OutputPath(layer, cfg.BasePackage, cfg.OutputRoot, data.ModelUpperCamel)
+		// 新签名：按层决定使用 java 根（cfg.OutputRoot）还是 resources 根（resourcesRoot）
+		path, err := OutputPath(layer, cfg.BasePackage, cfg.OutputRoot, resourcesRoot, data.ModelUpperCamel)
+		if err != nil {
+			return err
+		}
 
 		// os.MkdirAll 等价于 mkdir -p：递归创建所有中间目录，目录已存在不报错
 		// 0o755 是 Unix 权限八进制：rwxr-xr-x（所有人可读，仅 owner 可写）
