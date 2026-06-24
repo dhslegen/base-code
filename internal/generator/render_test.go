@@ -10,6 +10,8 @@ import (
 )
 
 // sampleData 构造一份完整的模板渲染测试数据，对应 sys_user 表。
+// JdbcType 字段是 mapper-xml 模板渲染 jdbcType 属性的来源，必须显式设置；
+// render 阶段不经过 BuildTemplateData（不走类型映射），因此需在此手动填入。
 func sampleData() TemplateData {
 	return TemplateData{
 		Author: "zhaowenhao", Since: "2026-06-23",
@@ -18,8 +20,8 @@ func sampleData() TemplateData {
 		ModelComment: "系统用户", PkFieldUpperCamel: "Id", IdType: "Long",
 		UseJakarta: true, IsWithAutoFill: false,
 		Fields: []model.FieldMetadata{
-			{JavaType: "Long", Name: "id", TableField: "id", Comment: "主键", IsPrimaryKey: true},
-			{JavaType: "String", Name: "name", TableField: "name", Comment: "姓名"},
+			{JavaType: "Long", JdbcType: "BIGINT", Name: "id", TableField: "id", Comment: "主键", IsPrimaryKey: true},
+			{JavaType: "String", JdbcType: "VARCHAR", Name: "name", TableField: "name", Comment: "姓名"},
 		},
 	}
 }
@@ -165,5 +167,29 @@ func TestRender_Converter(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("converter 缺少 %q:\n%s", want, out)
 		}
+	}
+}
+
+// TestRender_MapperXml 验证 XML 的 namespace、id/result 主键区分、Base_Column_List 逗号分隔。
+//
+// Go 小白知识点：mapper-xml 是 XML 文件而非 Java 代码，但 Go 的 text/template 对文本类型无感知——
+// 同一套 Render 函数既能渲染 .java 又能渲染 .xml，只要模板语法（{{.Field}}）正确即可。
+func TestRender_MapperXml(t *testing.T) {
+	out, err := Render("mapper-xml", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`namespace="com.dahaoshen.demo.mapper.SysUserMapper"`,
+		`<id column="id" jdbcType="BIGINT" property="id"/>`,   // 主键用 <id>
+		`<result column="name" jdbcType="VARCHAR" property="name"/>`, // 非主键用 <result>
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mapper-xml 缺少 %q:\n%s", want, out)
+		}
+	}
+	// Base_Column_List：两列应以逗号分隔且不以逗号结尾
+	if !strings.Contains(out, "id,") || !strings.Contains(out, "name") {
+		t.Errorf("Base_Column_List 应含逗号分隔的列:\n%s", out)
 	}
 }

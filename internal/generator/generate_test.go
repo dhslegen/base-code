@@ -181,3 +181,25 @@ func TestBuildTemplateData_CompositePrimaryKey(t *testing.T) {
 		t.Error("复合主键时 BuildTemplateData 应返回 error，但返回了 nil")
 	}
 }
+
+// TestGenerate_MapperXmlToResources 验证 mapper-xml 落到 resources/mapper 而非 java 包路径。
+//
+// Go 小白知识点：
+//   - t.TempDir() 创建的目录在测试结束后自动清理，路径具有唯一性（避免并行测试冲突）。
+//   - filepath.Join 跨平台拼接：Windows 用 "\", Unix 用 "/"，不要手写分隔符。
+//   - sampleCfg 的 OutputRoot 必须以 "src/main/java" 结尾，ResolveResourcesRoot 才能
+//     自动派生 resources 根（把末段 java 替换为 resources）。
+func TestGenerate_MapperXmlToResources(t *testing.T) {
+	root := t.TempDir()
+	// OutputRoot 以 src/main/java 结尾，使 ResolveResourcesRoot 能派生出 src/main/resources
+	javaRoot := filepath.Join(root, "src", "main", "java")
+	cfg := sampleCfg(javaRoot) // OutputRoot = .../src/main/java
+	if err := Generate(cfg, sampleMeta(), []string{"mapper-xml"}, false, nil); err != nil {
+		t.Fatal(err)
+	}
+	// mapper-xml 应落到 resources/mapper/SysUserMapper.xml，而非 java 包子目录
+	xmlPath := filepath.Join(root, "src", "main", "resources", "mapper", "SysUserMapper.xml")
+	if _, err := os.Stat(xmlPath); err != nil {
+		t.Errorf("mapper-xml 应落到 %s: %v", xmlPath, err)
+	}
+}

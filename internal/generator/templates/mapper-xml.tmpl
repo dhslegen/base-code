@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="{{.BasePackage}}.mapper.{{.ModelUpperCamel}}Mapper">
+    <resultMap id="BaseResultMap" type="{{.BasePackage}}.model.po.{{.ModelUpperCamel}}">
+        <!--@mbg.generated-->
+        <!--@Table {{.TableName}}-->
+{{- range .Fields}}
+{{- if .IsPrimaryKey}}
+        <id column="{{.TableField}}" jdbcType="{{.JdbcType}}" property="{{.Name}}"/>
+{{- else}}
+        <result column="{{.TableField}}" jdbcType="{{.JdbcType}}" property="{{.Name}}"/>
+{{- end}}
+{{- end}}
+    </resultMap>
+    <sql id="Base_Column_List">
+        <!--@mbg.generated-->
+        <!--@Table {{.TableName}}-->
+        {{range $i, $f := .Fields}}{{if $i}},
+        {{end}}{{$f.TableField}}{{end}}
+    </sql>
+</mapper>
