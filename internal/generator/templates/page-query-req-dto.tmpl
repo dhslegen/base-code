@@ -1,0 +1,47 @@
+package {{.BasePackage}}.model.dto.req;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+/**
+ * {{.ModelComment}}分页查询请求 DTO
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@EqualsAndHashCode(callSuper = true)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "{{.ModelComment}}分页查询请求 DTO")
+public class {{.ModelUpperCamel}}PageQueryReqDto extends {{.ModelUpperCamel}}QueryReqDto implements Serializable {
+    // region 分页参数接收区域
+    /**
+     * 当前页，默认 1
+     */
+    @Schema(description = "当前页，默认 1")
+    private Long current = 1L;
+
+    /**
+     * 每页显示条数，默认 10
+     */
+    @Schema(description = "每页显示条数，默认 10")
+    private Long size = 10L;
+
+    /**
+     * 生成 mybatis plus 的分页对象
+     *
+     * @param <T> 分页元素类型
+     * @return 分页对象
+     */
+    public <T> Page<T> page() {
+        return Page.of(current, size);
+    }
+    // endRegion
+}

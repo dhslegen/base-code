@@ -245,3 +245,39 @@ func TestRender_QueryReqDto(t *testing.T) {
 		t.Errorf("query-req-dto 类声明错误:\n%s", out)
 	}
 }
+
+// TestRender_PageQueryReqDto 验证分页 DTO 继承 QueryReqDto 且含 page() 方法与 current/size。
+func TestRender_PageQueryReqDto(t *testing.T) {
+	out, err := Render("page-query-req-dto", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"class SysUserPageQueryReqDto extends SysUserQueryReqDto implements Serializable",
+		"@EqualsAndHashCode(callSuper = true)",
+		"private Long current = 1L;",
+		"private Long size = 10L;",
+		"public <T> Page<T> page()",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("page-query-req-dto 缺少 %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestRender_UpdateByQueryReqDto 验证包装 DTO 含 entity(ReqDto) 与 queryReqDto 两字段。
+func TestRender_UpdateByQueryReqDto(t *testing.T) {
+	out, err := Render("update-by-query-req-dto", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"class SysUserUpdateByQueryReqDto implements Serializable",
+		"private SysUserReqDto entity;",
+		"private SysUserQueryReqDto queryReqDto;",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("update-by-query-req-dto 缺少 %q:\n%s", want, out)
+		}
+	}
+}

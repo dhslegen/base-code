@@ -63,6 +63,8 @@ func TestOutputPath(t *testing.T) {
 		{"req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserReqDto.java"},
 		{"resp-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/resp/SysUserRespDto.java"},
 		{"query-req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserQueryReqDto.java"},
+		{"page-query-req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserPageQueryReqDto.java"},
+		{"update-by-query-req-dto", "/proj/src/main/java/com/dahaoshen/demo/model/dto/req/SysUserUpdateByQueryReqDto.java"},
 	}
 	for _, tc := range cases {
 		got, err := OutputPath(tc.layer, "com.dahaoshen.demo", jr, rr, "SysUser")
@@ -228,6 +230,28 @@ func TestGenerate_WithoutApiLayers(t *testing.T) {
 	si := filepath.Join(root, "src", "main", "java", "com", "dahaoshen", "demo", "service", "impl", "SysUserServiceImpl.java")
 	xml := filepath.Join(root, "src", "main", "resources", "mapper", "SysUserMapper.xml")
 	for _, p := range []string{si, xml} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("应生成 %s: %v", p, err)
+		}
+	}
+}
+
+// TestGenerate_DtoLayers 验证 5 个 DTO 层全部能渲染落盘到 model/dto/req|resp。
+func TestGenerate_DtoLayers(t *testing.T) {
+	root := t.TempDir()
+	cfg := sampleCfg(filepath.Join(root, "src", "main", "java"))
+	layers := []string{"req-dto", "resp-dto", "query-req-dto", "page-query-req-dto", "update-by-query-req-dto"}
+	if err := Generate(cfg, sampleMeta(), layers, false, nil); err != nil {
+		t.Fatalf("DTO 层生成失败: %v", err)
+	}
+	base := filepath.Join(root, "src", "main", "java", "com", "dahaoshen", "demo", "model", "dto")
+	checks := map[string]string{
+		filepath.Join(base, "req", "SysUserReqDto.java"):              "req",
+		filepath.Join(base, "resp", "SysUserRespDto.java"):            "resp",
+		filepath.Join(base, "req", "SysUserPageQueryReqDto.java"):     "page",
+		filepath.Join(base, "req", "SysUserUpdateByQueryReqDto.java"): "update",
+	}
+	for p := range checks {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("应生成 %s: %v", p, err)
 		}

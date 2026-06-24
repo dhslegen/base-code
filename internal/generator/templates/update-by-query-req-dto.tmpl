@@ -1,0 +1,35 @@
+package {{.BasePackage}}.model.dto.req;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+/**
+ * {{.ModelComment}}根据查询修改 DTO
+ *
+ * @author {{.Author}}
+ * @since {{.Since}}
+ */
+@Schema(description = "{{.ModelComment}}根据查询修改 DTO")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class {{.ModelUpperCamel}}UpdateByQueryReqDto implements Serializable {
+
+    /**
+     * {{.ModelComment}}实体
+     */
+    @Schema(description = "{{.ModelComment}}实体")
+    private {{.ModelUpperCamel}}ReqDto entity;
+
+    /**
+     * 查询请求 DTO
+     */
+    @Schema(description = "查询请求 DTO")
+    private {{.ModelUpperCamel}}QueryReqDto queryReqDto;
+}
