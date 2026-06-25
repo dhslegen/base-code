@@ -2,6 +2,7 @@
   "$schema": "https://aka.ms/codetour-schema",
   "title": "03 元数据与单主键：结构体与 error",
   "description": "认识 Go 的「结构体」（数据的容器），并学会 Go 没有异常时怎么用 error 做「快速失败」。预计 12 分钟。",
+  "ref": "tutorial-v1",
   "steps": [
     {
       "file": "internal/model/model.go",

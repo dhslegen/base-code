@@ -2,6 +2,7 @@
   "$schema": "https://aka.ms/codetour-schema",
   "title": "05 渲染与编排：把流水线串起来（收官）",
   "description": "最后一站！看 embed 怎么把模板编进单个二进制、text/template 怎么套模板生成 Java 代码，并把整条流水线收尾。预计 18 分钟。",
+  "ref": "tutorial-v1",
   "steps": [
     {
       "file": "internal/generator/templates.go",

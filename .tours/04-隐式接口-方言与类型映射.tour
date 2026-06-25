@@ -2,6 +2,7 @@
   "$schema": "https://aka.ms/codetour-schema",
   "title": "04 隐式接口：方言与类型映射",
   "description": "学 Go 最有特色的「隐式接口」，顺便看怎么用「具名类型 + 常量」代替枚举。预计 13 分钟。",
+  "ref": "tutorial-v1",
   "steps": [
     {
       "file": "internal/dialect/dialect.go",

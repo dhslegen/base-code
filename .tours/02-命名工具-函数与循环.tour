@@ -2,6 +2,7 @@
   "$schema": "https://aka.ms/codetour-schema",
   "title": "02 命名工具：函数、循环与字符",
   "description": "全项目最简单的一个包，专门用来打 Go 基本功：函数怎么写、循环怎么转、字符怎么处理。预计 12 分钟。",
+  "ref": "tutorial-v1",
   "steps": [
     {
       "file": "internal/naming/naming.go",
