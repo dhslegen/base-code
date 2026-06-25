@@ -147,7 +147,8 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 		return TemplateData{}, err
 	}
 	// 2. 获取类型映射器（Go 接口：TypeMapper 的具体实现由方言决定）
-	mapper, err := typemap.For(d)
+	// cfg.DateType 透传给 typemap.For，控制日期列映射为 modern（java.time.*）还是 legacy（java.util.Date）
+	mapper, err := typemap.For(d, cfg.DateType)
 	if err != nil {
 		return TemplateData{}, err
 	}

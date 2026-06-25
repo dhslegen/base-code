@@ -18,12 +18,13 @@ type TypeMapper interface {
 	MapToJdbcType(dbType string) string
 }
 
-// For 按方言返回对应的 TypeMapper。
-// PostgreSQL 暂未实现，调用返回 error。
-func For(d dialect.SqlDialect) (TypeMapper, error) {
+// For 按方言返回 TypeMapper，dateType 控制日期类型映射（modern/legacy）。M3 起支持 PostgreSQL。
+// Go 小白知识点：dateType 透传给具体 mapper（如 NewMySQL），
+// 而不在 For 内硬编码，遵循「单一职责」——For 只负责分发，不决定映射细节。
+func For(d dialect.SqlDialect, dateType string) (TypeMapper, error) {
 	switch d {
 	case dialect.MySQL:
-		return NewMySQL(), nil
+		return NewMySQL(dateType), nil
 	default:
 		return nil, fmt.Errorf("暂未实现方言 %q 的类型映射", d)
 	}
