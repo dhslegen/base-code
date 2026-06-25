@@ -27,7 +27,9 @@ type TableScanner interface {
 	ScanTable(table string) (model.TableMetadata, error)
 }
 
-// For 按 SQL 方言返回对应的扫表器（M1 阶段仅支持 MySQL）。
+// For 按 SQL 方言返回对应的扫表器。
+//
+// 当前支持：MySQL（M1）、PostgreSQL（M3）。
 //
 // Go 小白知识点：switch 语句无需 break，默认不会 fall-through（和 Java/C 不同）。
 // 对于未知方言，走 default 分支，用 fmt.Errorf 构造带上下文信息的 error 返回。
@@ -35,6 +37,9 @@ func For(d dialect.SqlDialect, db *sql.DB) (TableScanner, error) {
 	switch d {
 	case dialect.MySQL:
 		return NewMySQL(db), nil
+	case dialect.PostgreSQL:
+		// M3 新增：PostgreSQL 扫表器，用 information_schema 三段查询实现。
+		return NewPostgreSQL(db), nil
 	default:
 		// 将方言值嵌入错误信息，方便调用方诊断配置问题。
 		return nil, fmt.Errorf("暂未实现方言 %q 的扫表器", d)

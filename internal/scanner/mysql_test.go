@@ -81,9 +81,10 @@ func TestFor_MySQL(t *testing.T) {
 	}
 }
 
-// TestFor_PostgreSQL 验证 For 对非 MySQL 方言返回 error（M1 范围内仅实现 MySQL）。
+// TestFor_PostgreSQL 验证 For(PostgreSQL, db) 成功返回扫表器（M3 已实现 PostgreSQL 扫表器）。
 //
-// Go 小白知识点：测试"预期失败"路径同样重要——错误路径不测等于漏掉半条代码路径。
+// Go 小白知识点：测试"预期成功"路径同样重要——功能已实现时应验证无错误返回。
+// 注：M1 阶段此测试断言返回 error；M3 实现 PostgreSQL 后更新为断言成功。
 func TestFor_PostgreSQL(t *testing.T) {
 	db, _, err := sqlmock.New()
 	if err != nil {
@@ -91,8 +92,11 @@ func TestFor_PostgreSQL(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = For(dialect.PostgreSQL, db)
-	if err == nil {
-		t.Error("For(PostgreSQL) 应返回 error，因为 M1 未实现 PostgreSQL 扫表器")
+	s, err := For(dialect.PostgreSQL, db)
+	if err != nil {
+		t.Errorf("For(PostgreSQL) 不应返回 error: %v", err)
+	}
+	if s == nil {
+		t.Error("For(PostgreSQL) 应返回非 nil 扫表器")
 	}
 }
