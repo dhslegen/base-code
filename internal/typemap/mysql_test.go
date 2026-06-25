@@ -60,13 +60,13 @@ func TestMySQL_JdbcType(t *testing.T) {
 	}
 }
 
-// TestFor 验证按方言取 TypeMapper：MySQL 成功，PostgreSQL（暂未实现）返回 error。
-// dateType 传 "modern"（正常值）验证 MySQL 分支；PG 分支不论 dateType 都应 error。
+// TestFor 验证按方言取 TypeMapper：MySQL 与 PostgreSQL 都应成功。
+// dateType 传 "modern"（正常值）验证两个分支。
 func TestFor(t *testing.T) {
 	if _, err := For(dialect.MySQL, "modern"); err != nil {
 		t.Errorf("For(MySQL) 不应报错: %v", err)
 	}
-	if _, err := For(dialect.PostgreSQL, "modern"); err == nil {
-		t.Error("For(PostgreSQL) 应返回 error（暂未实现）")
+	if _, err := For(dialect.PostgreSQL, "modern"); err != nil {
+		t.Errorf("For(PostgreSQL) 不应报错: %v", err)
 	}
 }

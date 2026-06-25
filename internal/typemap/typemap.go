@@ -25,6 +25,8 @@ func For(d dialect.SqlDialect, dateType string) (TypeMapper, error) {
 	switch d {
 	case dialect.MySQL:
 		return NewMySQL(dateType), nil
+	case dialect.PostgreSQL:
+		return NewPostgreSQL(dateType), nil
 	default:
 		return nil, fmt.Errorf("暂未实现方言 %q 的类型映射", d)
 	}
