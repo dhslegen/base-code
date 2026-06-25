@@ -162,7 +162,7 @@ func FromValue(s string) (SqlDialect, error) { ... }
 #### 接口定义
 
 ```go
-// internal/scanner/scanner.go:24-28
+// internal/scanner/scanner.go:25-28
 type TableScanner interface {
     ScanTable(table string) (model.TableMetadata, error)
 }
@@ -209,6 +209,7 @@ LEFT JOIN pg_class pgc ON pgc.relname = c.table_name
 > - **`rows.Next()` 遍历**：`db.Query()` 返回 `*sql.Rows`（游标），必须调用 `defer rows.Close()` 归还连接；`rows.Next()` 移动游标，`rows.Scan(&v1, &v2...)` 读取当前行，必须传指针。
 > - **MySQL `?` vs PostgreSQL `$1`**：MySQL 驱动用 `?` 占位符，pgx 驱动（`pgx/v5/stdlib`）用 `$1, $2...` 有序编号占位符。
 > - **`sql.NullString` / `sql.NullInt64`**：接收数据库 NULL 值的标准类型，`Valid=false` 表示 NULL，`Valid=true` 时字段有意义。
+> - **`go-sqlmock` 单元测试**：`github.com/DATA-DOG/go-sqlmock` 注册一个假 `sql.Driver`，无需启动真实数据库即可测试 `ScanTable`——预设期望 SQL 与返回行，断言结果（见 `internal/scanner/mysql_test.go` / `postgresql_test.go`）。类比 Java 的 Mockito mock `ResultSet` 或 H2 内存库。
 
 ---
 
@@ -222,7 +223,7 @@ LEFT JOIN pg_class pgc ON pgc.relname = c.table_name
 - `internal/typemap/postgresql.go`：PostgreSQL 实现
 
 ```go
-// internal/typemap/typemap.go:13-19
+// internal/typemap/typemap.go:14-19
 type TypeMapper interface {
     MapToJavaType(dbType string) string
     MapToJdbcType(dbType string) string
@@ -293,7 +294,7 @@ type ColumnMetadata struct {
     IsPrimaryKey  bool
 }
 
-// internal/model/model.go:18-27  Java 视角
+// internal/model/model.go:19-27  Java 视角
 type FieldMetadata struct {
     JavaType     string
     JdbcType     string
@@ -369,6 +370,8 @@ var funcMap = template.FuncMap{
     {{if $.UseJakarta}}@Serial{{end}}
 ```
 
+（此处省略 `fill = FieldFill.INSERT/UPDATE/INSERT_UPDATE` 的 autoFill 条件分支，完整见 `templates/po.tmpl`）
+
 > `range .Fields` 内部 `.` 指向当前 `FieldMetadata`；要访问父级上下文（`TemplateData`）字段，需用 `$.UseJakarta` 而非 `.UseJakarta`。
 
 #### 层定义表（Layers）
@@ -415,12 +418,12 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 
 > **Java 对照**
 >
-> Java 版在 `BaseCodeApplication.main()` 里直接硬编码流水线，没有 `embed.FS`——模板文件以 `.ftl`（FreeMarker）形式存放在 resources 目录，Spring Boot 打包后通过 ClassPath 加载。Go 版的 `//go:embed` 编译时将模板编进二进制，无需任何外部文件，发布一个可执行文件即完整。
+> Java 版（`BaseCodeApplication`）使用 **Thymeleaf**（`org.thymeleaf.TemplateEngine`）作为模板引擎，模板以 `.tmpl` 后缀存放在 `resources/templates/` 下，Spring Boot 打包后通过 ClassPath 加载。模板语法：变量用 `[[${basePackageName}]]`，循环用 `[# th:each="field : ${fields}"]...[/]`，条件用 `[# th:if="${...}"]...[/]`。Go 版用 `//go:embed` 将 `.tmpl` 文件编译进二进制（单文件分发），模板引擎换为标准库 `text/template`，语法不同但设计意图完全对应。
 
 > **Go 小白知识点**
 >
 > - **`//go:embed`**：编译指令，必须紧贴 `var` 声明（中间不能有空行）。`all:templates` 嵌入 `templates/` 目录下全部文件（包含隐藏文件）。
-> - **`text/template`**：Go 标准库模板引擎，`{{.Field}}` 访问结构体字段，`{{range .Slice}}...{{end}}` 遍历切片，`{{if .Bool}}...{{end}}` 条件渲染。与 Java FreeMarker 的 `${field}` / `<#list>` 对应。
+> - **`text/template`**：Go 标准库模板引擎，`{{.Field}}` 访问结构体字段，`{{range .Slice}}...{{end}}` 遍历切片，`{{if .Bool}}...{{end}}` 条件渲染。对应 Java Thymeleaf 的 `[[${field}]]` / `[# th:each ...]`，但两者语法不同——Go 用双花括号，Thymeleaf 用双方括号或属性标签。
 > - **`io.Writer` 接口**：`Generate` 的 `out io.Writer` 参数。只要实现 `Write([]byte) (int, error)`，就是 `Writer`。测试传 `&bytes.Buffer{}`，CLI 传 `os.Stdout`，代码一字不改——这是「依赖接口，不依赖实现」的典型体现。
 > - **`map[string]bool` 当集合**：Go 没有 `Set<T>`，惯用 `map[K]bool`，`O(1)` 成员判断（`onlyTableModifySet[layer]`）。
 
