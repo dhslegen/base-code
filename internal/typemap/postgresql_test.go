@@ -55,3 +55,15 @@ func TestFor_PostgreSQL_OK(t *testing.T) {
 		t.Errorf("For(PostgreSQL) 不应报错: %v", err)
 	}
 }
+
+// TestPostgreSQL_ExtraAssertions 补强：timetz legacy → java.sql.Time；money modern jdbc → OTHER。
+func TestPostgreSQL_ExtraAssertions(t *testing.T) {
+	// timetz 在 legacy dateType 下应映射为 java.sql.Time
+	if got := NewPostgreSQL("legacy").MapToJavaType("timetz"); got != "java.sql.Time" {
+		t.Errorf("legacy timetz = %q, want java.sql.Time", got)
+	}
+	// money 的 JDBC 类型应为 OTHER（对齐 pgJdbc 映射）
+	if got := NewPostgreSQL("modern").MapToJdbcType("money"); got != "OTHER" {
+		t.Errorf("modern money jdbc = %q, want OTHER", got)
+	}
+}

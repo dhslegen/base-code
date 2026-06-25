@@ -90,7 +90,10 @@ func TestPostgreSQL_ScanTable(t *testing.T) {
 //
 // 注意：mysql_test.go 中原 TestFor_PostgreSQL 测试旧行为（期望 error）已更新为成功。
 func TestFor_PostgreSQL_Scanner(t *testing.T) {
-	db, _, _ := sqlmock.New()
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 	if _, err := For(dialect.PostgreSQL, db); err != nil {
 		t.Errorf("For(PostgreSQL) 不应报错: %v", err)

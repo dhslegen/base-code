@@ -40,6 +40,8 @@ var jdbcTypes = map[string]string{
 	"date": "DATE", "time": "TIME",
 	"double": "DOUBLE", "float": "REAL",
 	"bit": "BIT", "boolean": "BOOLEAN",
+	"blob": "BLOB", "longblob": "BLOB", "mediumblob": "BLOB", "tinyblob": "BLOB",
+	"real": "REAL",
 }
 
 // MapToJavaType 把 MySQL 列类型映射为 Java 标准类型（非 java.lang 类型返回 FQN）。
