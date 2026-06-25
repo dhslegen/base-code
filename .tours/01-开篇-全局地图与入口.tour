@@ -1,0 +1,67 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "01 开篇：全局地图与程序入口",
+  "description": "从程序入口出发，建立整个项目的全局地图，学会 Go 程序怎么启动、cobra 命令行怎么组织。预计 15 分钟。",
+  "steps": [
+    {
+      "file": "main.go",
+      "line": 9,
+      "title": "第 9 行：欢迎！这是程序的大门",
+      "description": "👋 欢迎来到 **base-code-go** 的源码课堂！\n\n这是一个**数据库代码生成器**：你给它一张数据库表，它自动生成一整套 Java 代码（实体类、Mapper、Service、Controller……共 14 层）。\n\n我们从这扇大门 `package main` 开始。\n\n🐍 **Go 基础：package（包）**\n- Go 把代码按「包」组织，每个文件夹是一个包，文件第一行 `package xxx` 声明自己属于哪个包。\n- `package main` 很特殊：**只有它能编译成可执行程序**。其他包（如后面会看到的 naming、model）都是「库」，被 main 调用。\n- 类比：main 包像一栋楼的大门和总开关，其他包像各个房间。\n\n📦 这个文件只有 30 多行，干一件事：**启动程序、处理错误、决定退出码**。真正的活儿都在别的包里。"
+    },
+    {
+      "file": "main.go",
+      "line": 18,
+      "title": "第 18 行：func main —— 一切的起点",
+      "description": "```go\nfunc main() {\n```\n\n🐍 **Go 基础：函数 func**\n- `func 函数名() { ... }` 定义一个函数。`main` 是特殊名字：**程序一启动，Go 自动调用 `func main()`**，不用你手动调。\n- 类比：`main` 是赛跑的发令枪，程序运行 = 从这里第一行开始执行。\n\n🗺️ **先看全局地图**——整个程序就是一条「流水线」，本课程 5 条游览正好对应它的各段：\n\n| 流水线步骤 | 干什么 | 在哪个包 | 哪条游览 |\n|---|---|---|---|\n| 入口/命令行 | 解析 `gen --tables ...` | main / cmd | **本条 01** |\n| 命名转换 | user_name → UserName | naming | 02 |\n| 元数据 | 表/列/主键的数据结构 | model | 03 |\n| 方言+类型映射 | bigint → Long | dialect / typemap | 04 |\n| 渲染+落盘 | 套模板生成 .java 文件 | generator | 05 |\n\n跟着走完 5 条，你就懂了整个生成器，也顺便学会了 Go 的核心语法。"
+    },
+    {
+      "file": "main.go",
+      "line": 22,
+      "title": "第 22 行：Go 的错误处理长这样",
+      "description": "```go\nif err := cmd.Execute(); err != nil {\n```\n\n🐍 **Go 基础：错误处理（重点！和 Java 完全不同）**\n- `cmd.Execute()` 启动命令行，它返回一个 `error`（错误值）。\n- Go **没有 try/catch 异常**！它把错误当成一个普通返回值，谁调用谁检查。\n- `if err := xxx(); err != nil { ... }` 是 Go 最常见的句式：调用、拿到 err、判断「err 不是 nil（空）就说明出错了」。\n- `:=` 是「声明并赋值」：第一次创建 err 变量同时给它赋值，不用提前写 `var err error`。\n\n💡 **工程思想**：异常会「跳过」很多代码、藏在调用链深处；Go 强制你在每一步显式处理错误，代码啰嗦一点，但「哪里会出错」一目了然。这是 Go 的设计哲学。"
+    },
+    {
+      "file": "main.go",
+      "line": 34,
+      "title": "第 34 行：os.Exit(1) —— 告诉外界「我失败了」",
+      "description": "```go\nfmt.Fprintln(os.Stderr, \"错误:\", err)\nos.Exit(1)\n```\n\n📦 **业务含义**：出错时，把错误信息打印到屏幕，然后用「非零退出码」退出。\n\n🐍 **Go 基础：标准输出 vs 标准错误**\n- `fmt.Println(...)` 写到 **stdout**（标准输出）——程序的正常结果。\n- `fmt.Fprintln(os.Stderr, ...)` 写到 **stderr**（标准错误）——错误和诊断信息。\n- 为什么分开？管道和脚本可以分别处理，比如「正常结果存文件、错误信息显示在屏幕」。\n\n🐍 **退出码**：`os.Exit(1)` 让程序以退出码 1 结束。Unix 约定 **0=成功，非零=失败**。\n- 好处：Shell 脚本 `base-code gen ... || echo 失败` 能据此判断；CI 流水线据此标红。\n\n💡 这就是 main 包的全部职责：**启动 → 出错就打印并以非零码退出**。简单、清晰、不掺业务。"
+    },
+    {
+      "file": "cmd/root.go",
+      "line": 15,
+      "title": "第 15 行：cobra —— 命令行的脚手架",
+      "description": "main 调用的 `cmd.Execute()` 在这里。我们用了 **cobra**——Go 生态最流行的命令行库（kubectl、docker、gh 都用它）。\n\n```go\nvar rootCmd = &cobra.Command{\n\tUse:   \"base-code\",\n\tShort: \"数据库代码生成器（Go 版）\",\n```\n\n🐍 **Go 基础：结构体字面量 & 取地址 `&`**\n- `cobra.Command{...}` 创建一个 Command 结构体，花括号里按「字段名: 值」填。\n- 前面的 `&` 表示「取地址」，得到一个**指针**。cobra 要求传指针（这样它能修改这个对象）。\n- 类比：`Command{}` 是一张填好的表格，`&` 是这张表格的「门牌号」。\n\n📦 **业务含义**：`rootCmd` 是「根命令」`base-code`。`Use` 是命令名，`Short`/`Long` 是 `--help` 里显示的说明。所有子命令（如 `gen`）都挂在它下面，形成一棵**命令树**。"
+    },
+    {
+      "file": "cmd/root.go",
+      "line": 31,
+      "title": "第 31 行：init() —— 程序启动前的自动布置",
+      "description": "```go\nfunc init() {\n\trootCmd.AddCommand(genCmd)\n}\n```\n\n🐍 **Go 基础：init() 初始化函数**\n- `init()` 是特殊函数：**在 main() 运行之前，Go 自动调用它**，不能手动调。\n- 用途：做一些「程序一启动就该准备好」的布置。这里是把 `gen` 子命令注册到根命令，让 `base-code gen` 这条命令生效。\n- 一个包可以有多个 `init()`（分散在不同文件），都会被自动执行。\n\n📦 **业务含义**：注册之后，命令树就长成了 `base-code → gen`。用户输入 `base-code gen --tables user`，cobra 先命中 root，再路由到 gen。\n\n💡 记住这个套路：**cobra 项目里，命令的「定义」在 var，命令的「组装」在 init()**。"
+    },
+    {
+      "file": "cmd/gen.go",
+      "line": 10,
+      "title": "第 10 行：`_` 空白导入 —— 一个神秘的下划线",
+      "description": "进入 `gen.go`——真正干活的子命令。先看这个奇怪的 import：\n\n```go\n_ \"github.com/go-sql-driver/mysql\"\n```\n\n🐍 **Go 基础：空白导入（blank import）**\n- `_` 是「空白标识符」，意思是「我导入这个包，但**不直接用它的任何函数**」。\n- 那为什么还要导入？因为这个包有个 `init()`，一被导入就会自动运行，把 MySQL 驱动「注册」到 Go 的标准数据库接口里。\n- 不导入它，后面 `sql.Open(\"mysql\", ...)` 就会报错「找不到 mysql 驱动」。\n- 第 16 行还有一个 `_ pgx/v5/stdlib`，同理注册 PostgreSQL 驱动。\n\n💡 **工程思想**：这是 Go 的「插件式注册」套路——主程序不认识具体驱动，驱动靠 init() 自己「报到」。想支持新数据库？加一行空白导入即可。"
+    },
+    {
+      "file": "cmd/gen.go",
+      "line": 49,
+      "title": "第 49~107 行：RunE —— 生成代码的主流程",
+      "description": "这是整个生成器的**主剧情**。`RunE` 是命令真正执行的函数（Run with Error，返回 error 那一版）。\n\n它按编号串起整条流水线，每一步都对应后面的某条游览：\n\n| 步 | 代码 | 干什么 | 游览 |\n|---|---|---|---|\n| 1 | `config.Load` | 读配置文件 | （config 包） |\n| 4 | `dialect.FromValue` | 认出是 mysql 还是 pg | 04 |\n| 5 | `sql.Open` | 打开数据库连接 | 本条 |\n| 6 | `scanner.For` | 拿到「扫表器」 | （scanner 包） |\n| 7 | `sc.ScanTable` + `generator.Generate` | 扫表 → 生成代码 | 03/04/05 |\n\n🐍 **Go 基础：`defer`（第 83 行）**\n- `defer db.Close()` 意思是「函数结束时，自动执行 db.Close()」。\n- 好处：打开资源后马上写好关闭逻辑，**不管函数从哪个分支返回都会关**，绝不遗漏。类比：进门就先把「走时记得锁门」写在便利贴上。"
+    },
+    {
+      "file": "cmd/gen.go",
+      "line": 96,
+      "title": "第 96 行：选择要生成哪些层",
+      "description": "```go\nlayers := generator.SelectLayers(flagOnlyTableModify, flagWithoutApi)\n```\n\n📦 **业务含义**：决定这次生成哪些「层」。默认生成全部 14 层；如果用户加了 `--without-api`，就只生成后端内部层；加 `--only-table-modify` 只生成改表影响的层。\n\n这个 `SelectLayers` 怎么实现的，我们留到 **05 条游览**细看（它用「集合求交集」很巧妙）。\n\n🐍 **Go 基础：短变量声明 `:=`**\n- `layers := ...` 自动推断 `layers` 的类型（这里是 `[]string`，字符串切片），不用写类型，简洁。\n\n💡 这一行体现了好设计：`gen.go` 只管「调用」，「哪 14 层、怎么过滤」的细节全封装在 generator 包里。各管一段，互不打扰。"
+    },
+    {
+      "file": "cmd/gen.go",
+      "line": 111,
+      "title": "第 111~125 行：把命令行 --flag 接到变量上",
+      "description": "```go\ngenCmd.Flags().StringVar(&flagConfig, \"config\", \"base-code.yaml\", \"配置文件路径\")\ngenCmd.Flags().StringVar(&flagTables, \"tables\", \"\", \"逗号分隔的表名（必填）\")\n...\n_ = genCmd.MarkFlagRequired(\"tables\")\n```\n\n📦 **业务含义**：告诉 cobra「这个命令有哪些 `--xxx` 参数」。`StringVar(&变量, \"名字\", \"默认值\", \"说明\")` 把命令行参数和一个变量绑起来：用户输入 `--config=a.yaml`，cobra 自动把 `\"a.yaml\"` 写进 `flagConfig`。\n\n🐍 **Go 基础：指针参数 `&flagConfig`**\n- 传 `&flagConfig`（变量的地址）而不是 `flagConfig`（值），cobra 才能「往里写」。这和前面 cobra.Command 用 `&` 是同一个道理。\n\n🐍 `_ = genCmd.MarkFlagRequired(...)`：`--tables` 设为必填。`_ =` 表示「故意忽略这个函数的返回值」（这里返回的 error 不可能发生）。\n\n## ✅ 本条游览你学到的\nGo 程序结构（package main / func main）、错误处理（err != nil）、os.Exit 退出码、stdout vs stderr、cobra 命令树、init()、空白导入 `_`、defer、指针 `&`、短声明 `:=`。\n\n👉 下一条：**02 命名工具**，从最简单的一个小文件入手，把「函数」「循环」这些 Go 基础彻底吃透。"
+    }
+  ]
+}

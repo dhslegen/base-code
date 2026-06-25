@@ -1,0 +1,43 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "03 元数据与单主键：结构体与 error",
+  "description": "认识 Go 的「结构体」（数据的容器），并学会 Go 没有异常时怎么用 error 做「快速失败」。预计 12 分钟。",
+  "steps": [
+    {
+      "file": "internal/model/model.go",
+      "line": 2,
+      "title": "第 2 行：model 包 —— 给数据找个「形状」",
+      "description": "📦 **业务含义**：生成器从数据库扫到一张表后，得把「表名、列名、列类型、注释、是不是主键」这些信息装起来传给后面用。装在哪？装进**结构体**。\n\n这个包定义了三个数据容器：\n- `ColumnMetadata` —— 一列的信息（数据库视角）\n- `FieldMetadata` —— 一列经过加工后的信息（Java 视角）\n- `TableMetadata` —— 一整张表\n\n💡 **工程思想**：先把「数据长什么样」定义清楚，后面的代码才有共同语言。数据结构是程序的骨架。"
+    },
+    {
+      "file": "internal/model/model.go",
+      "line": 10,
+      "title": "第 10 行：struct —— Go 的数据容器",
+      "description": "```go\ntype ColumnMetadata struct {\n\tColumnName    string\n\tColumnType    string\n\tColumnComment string\n\tIsPrimaryKey  bool\n}\n```\n\n🐍 **Go 基础：结构体 struct（重点！）**\n- `type 名字 struct { ... }` 定义一个结构体，里面列出若干「字段名 + 类型」。\n- 它就是「把几个相关的值打包成一个整体」，类似 Java 的 POJO / 实体类，但**没有方法、没有继承**，纯粹装数据。\n- 用法：`c := ColumnMetadata{ColumnName: \"id\", IsPrimaryKey: true}`，再用 `c.ColumnName` 取字段。\n\n📦 这个结构体描述「数据库里的一列」：列名、列类型（如 `bigint`）、注释、是不是主键。\n\n💡 类比：struct 像一张「表格的表头」，规定了每条记录有哪些字段。"
+    },
+    {
+      "file": "internal/model/model.go",
+      "line": 19,
+      "title": "第 19 行：FieldMetadata —— 字段大写有讲究",
+      "description": "```go\ntype FieldMetadata struct {\n\tJavaType     string\n\tJdbcType     string\n\tName         string // 小驼峰字段名\n\t...\n}\n```\n\n📦 **业务含义**：`ColumnMetadata` 是「数据库说的话」（列名 user_name、类型 bigint），`FieldMetadata` 是「翻译成 Java 后的话」（字段名 userName、类型 Long）。中间的翻译过程在 04、05 条游览。\n\n🐍 **Go 基础：字段大写 = 导出（呼应注释第 18 行）**\n- 注意所有字段名都是**大写开头**（JavaType、Name……）。这不是随便写的：和函数一样，**大写 = 导出 = 外部可见**。\n- 为什么必须大写？因为第 05 条游览里，模板引擎（text/template）要用 `{{.JavaType}}` 读这些字段，而它**只能看到导出（大写）字段**。小写字段对模板是隐形的。\n\n💡 记住这个因果：**想让模板读到 → 字段必须大写**。"
+    },
+    {
+      "file": "internal/model/model.go",
+      "line": 30,
+      "title": "第 30 行：TableMetadata —— 切片装一堆列",
+      "description": "```go\ntype TableMetadata struct {\n\tTableName    string\n\tTableComment string\n\tColumns      []ColumnMetadata\n}\n```\n\n🐍 **Go 基础：切片 slice `[]T`（重点！）**\n- `[]ColumnMetadata` 读作「ColumnMetadata 的切片」，就是「一串 ColumnMetadata」，类似 Java 的 `List<ColumnMetadata>` 或数组。\n- 切片能动态增长（用 `append` 往里加，下一步就会看到），是 Go 里最常用的「装一堆东西」的容器。\n\n📦 **业务含义**：一张表 = 表名 + 表注释 + 一串列。结构体可以**嵌套**：TableMetadata 里装着一个 ColumnMetadata 切片，层层组合描述复杂数据。\n\n💡 数据结构搭好了：列(Column) → 表(Table)，一张表握着它所有的列。"
+    },
+    {
+      "file": "internal/model/model.go",
+      "line": 38,
+      "title": "第 38 行：FindSinglePrimaryKey —— 返回值里带 error",
+      "description": "```go\nfunc FindSinglePrimaryKey(fields []FieldMetadata, tableName string) (FieldMetadata, error) {\n```\n\n🐍 **Go 基础：多返回值 + error（Go 的招牌）**\n- 注意返回类型是 `(FieldMetadata, error)`——**两个值**！Go 函数可以返回多个值。\n- 惯例：最后一个返回值是 `error`。成功时返回 `(结果, nil)`，失败时返回 `(零值, 具体错误)`。\n- 这就是上一条游览说的：**Go 没有 throw/try-catch，错误是普通返回值**。\n\n📦 **业务含义**：这个函数在所有字段里找「唯一的主键」。框架只支持单列主键，所以「没主键」和「多个主键（复合主键）」都得拦下来。\n\n💡 函数名起得好：`FindSinglePrimaryKey`——「找出单个主键」，名字即文档，一看就知道它要的是「恰好一个」。"
+    },
+    {
+      "file": "internal/model/model.go",
+      "line": 45,
+      "title": "第 45~53 行：快速失败 —— 推演两种「翻车现场」",
+      "description": "```go\nif len(pks) == 0 {\n\treturn FieldMetadata{}, fmt.Errorf(\"表 [%s] 无主键……\", tableName)\n}\nif len(pks) > 1 {\n\t...\n\treturn FieldMetadata{}, fmt.Errorf(\"表 [%s] 为复合主键(列: %s)……\", tableName, ...)\n}\nreturn pks[0], nil\n```\n\n🐍 **Go 基础**：`len(pks)` 取切片长度；`FieldMetadata{}` 是「零值结构体」（所有字段空），出错时返回它占位。`fmt.Errorf(\"...%s...\", x)` 创建带格式的 error，`%s` 是字符串占位符。\n\n📦 **推演两种翻车**：\n- 表 `t_log` 忘了建主键 → `pks` 长度 0 → 返回错误「表 [t_log] 无主键」，**立刻停**。\n- 表用了 `(user_id, role_id)` 联合主键 → `pks` 长度 2 → 返回错误「复合主键」，**立刻停**。\n- 只有恰好 1 个主键 → 返回 `(pks[0], nil)`，成功。\n\n💡 **工程思想：快速失败（fail-fast）**。与其生成一堆编译不过的烂代码让你后面 debug，不如在源头一发现问题就明确报错、立刻停下。错误信息还带上表名和列名，让你一眼知道是哪张表的锅。\n\n## ✅ 本条游览你学到的\nstruct 结构体、字段大写=导出（模板可见性）、切片 `[]T`、`len()`、零值 `T{}`、多返回值、`error` 与 `fmt.Errorf`、快速失败思想。\n\n👉 下一条：**04 隐式接口**，看 Go 最有特色的「接口」机制——它和 Java 的 implements 完全不一样。"
+    }
+  ]
+}

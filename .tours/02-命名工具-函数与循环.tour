@@ -1,0 +1,49 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "02 命名工具：函数、循环与字符",
+  "description": "全项目最简单的一个包，专门用来打 Go 基本功：函数怎么写、循环怎么转、字符怎么处理。预计 12 分钟。",
+  "steps": [
+    {
+      "file": "internal/naming/naming.go",
+      "line": 3,
+      "title": "第 3 行：naming 包 —— 专管「改名字」",
+      "description": "📦 **业务含义**：数据库里的列名长这样 `user_name`（小写+下划线），但 Java 里要写成 `userName`（小驼峰）或 `UserName`（大驼峰）。这个包就负责这些**命名风格的转换**。\n\n为什么先看它？因为它是全项目**最简单**的包：纯函数、不依赖别人、没有数据库、没有模板。拿它来练 Go 基本功最合适。\n\n🐍 **Go 基础：包注释**\n- 文件顶部 `// Package naming ...` 是「包文档注释」，写在 `package` 行正上方，会被 `go doc` 工具提取成文档。养成写它的习惯。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 8,
+      "title": "第 8 行：第一个函数 Camel",
+      "description": "```go\nfunc Camel(s string) string { return camel(s, false) }\n```\n\n🐍 **Go 基础：函数定义（拆开看）**\n- `func` 关键字 + `Camel` 函数名 + `(s string)` 参数 + `string` 返回类型。\n- 读法：「Camel 接收一个字符串参数 s，返回一个字符串」。\n- `return camel(s, false)`：转手调用内部的 `camel`，结果直接返回。\n\n🐍 **Go 基础：大小写决定「可见性」（超重要！）**\n- `Camel` 首字母**大写** = 「导出」= 别的包能调用它（相当于 Java 的 public）。\n- 下一步会看到的 `camel`（小写）= 「包私有」= 只有本包能用（相当于 private）。\n- **Go 没有 public/private 关键字，全靠首字母大小写**。这是 Go 最有特色的设计之一。\n\n📦 `Camel(\"user_name\")` → `\"userName\"`。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 17,
+      "title": "第 17 行：camel —— 真正干活的私有函数",
+      "description": "```go\nfunc camel(s string, upperFirst bool) string {\n\tnextUpper := upperFirst\n\tvar b strings.Builder\n```\n\n🐍 **Go 基础：包私有 + 两种变量声明**\n- `camel` 小写开头 = 包私有，外部看不见。`Camel`/`UpperCamel` 两个公开函数都委托它来做事，只是 `upperFirst` 参数不同——这叫**复用**。\n- `nextUpper := upperFirst`：`:=` 短声明，自动推断类型为 bool。\n- `var b strings.Builder`：`var` 完整声明。`strings.Builder` 是一个「高效拼字符串的工具」——一点点往里加字符，最后一次性取出，比反复用 `+` 拼字符串快得多。\n\n💡 **工程思想**：两个公开 API（Camel/UpperCamel）共用一个私有实现，避免复制粘贴。DRY 原则（Don't Repeat Yourself）。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 20,
+      "title": "第 20 行：for range —— Go 的「逐个取出」",
+      "description": "```go\nfor _, c := range s {\n```\n\n🐍 **Go 基础：for range 循环（重点！）**\n- `for _, c := range s` 把字符串 s **一个字符一个字符**地取出来，每轮 c 是当前字符。\n- `range` 返回两个值：**下标** 和 **元素**。这里下标用不到，用 `_`（空白标识符）丢弃，只要元素 c。\n- 注意：Go 遍历字符串得到的是 **rune**（一个 Unicode 码点，能表示中文/emoji），不是单字节。对 ASCII 列名来说，一个 rune 就是一个字母。\n\n💡 类比：`range` 像把一串糖葫芦一颗一颗摘下来，每次处理一颗。`for` 是 Go **唯一**的循环关键字——没有 while、没有 do-while，一个 for 全包了。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 21,
+      "title": "第 21~30 行：核心逻辑 —— 推演一遍给你看",
+      "description": "```go\nif c == '_' || c == '-' {\n\tnextUpper = true\n\tcontinue\n}\nif nextUpper {\n\tb.WriteRune(toUpper(c))\n\tnextUpper = false\n} else {\n\tb.WriteRune(toLower(c))\n}\n```\n\n🐍 **Go 基础：`continue`**——跳过本轮剩下的代码，直接进入下一轮循环。\n\n📦 **推演 `Camel(\"user_name\")`**（nextUpper 起始 = false）：\n\n| 字符 | nextUpper? | 动作 | 结果累积 |\n|---|---|---|---|\n| u | false | 小写写入 | u |\n| s,e,r | false | 小写写入 | user |\n| _ | — | 设 nextUpper=true，**continue 跳过** | user |\n| n | **true** | 大写写入，再设回 false | userN |\n| a,m,e | false | 小写写入 | userName |\n\n✅ 得到 `userName`！分隔符 `_` 不输出，只是「通知下一个字母要大写」。这就是下划线转驼峰的全部秘密。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 38,
+      "title": "第 38 行：Kebab —— 注意它的「使用契约」",
+      "description": "```go\n// 契约：仅接受大驼峰输入……\nfunc Kebab(s string) string {\n```\n\n📦 **业务含义**：`Kebab(\"UserRole\")` → `\"user-role\"`（用于生成 URL 路径，如 `/sys-user`）。逻辑反过来：遇到大写字母就在前面插一个 `-` 再转小写。\n\n💡 **工程思想：注释里写清「契约」**\n- 注释明确说「只接受大驼峰输入」。意思是：你要先 `UpperCamel` 再 `Kebab`，别直接喂下划线进来（喂了不会报错，但结果不对）。\n- 这种「我需要你怎么用我」的约定叫**契约**。把契约写进注释，是避免别人误用的低成本好习惯——这条契约还是当初代码评审专门要求补上的。"
+    },
+    {
+      "file": "internal/naming/naming.go",
+      "line": 67,
+      "title": "第 67 行：toUpper —— 字母的「加减法」",
+      "description": "```go\nfunc toUpper(c rune) rune {\n\tif c >= 'a' && c <= 'z' {\n\t\treturn c - 32\n\t}\n\treturn c\n}\n```\n\n🐍 **Go 基础：字符其实是数字**\n- rune 本质是个整数（字符的编码值）。ASCII 表里，`'a'` 是 97，`'A'` 是 65，正好差 **32**。\n- 所以「小写转大写」= 减 32；非字母原样返回。`toLower` 反过来加 32。\n- `c >= 'a' && c <= 'z'`：判断「是不是小写字母」，直接拿字符比大小，因为它们就是数字。\n\n💡 注释解释了为什么**手写**而不用标准库 `unicode.ToUpper`：列名都是 ASCII，手写够用且零依赖。能力够用时不引入额外依赖，也是一种克制。\n\n## ✅ 本条游览你学到的\nGo 函数定义、大小写决定可见性（导出/私有）、`var` vs `:=`、`strings.Builder`、`for range` 遍历、rune、`continue`、字符即数字、把契约写进注释。\n\n👉 下一条：**03 元数据与单主键**，认识 Go 的「结构体」，看 Go 没有异常时怎么用 error 优雅地「快速失败」。"
+    }
+  ]
+}

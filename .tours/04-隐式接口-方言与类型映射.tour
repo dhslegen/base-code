@@ -1,0 +1,49 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "04 隐式接口：方言与类型映射",
+  "description": "学 Go 最有特色的「隐式接口」，顺便看怎么用「具名类型 + 常量」代替枚举。预计 13 分钟。",
+  "steps": [
+    {
+      "file": "internal/dialect/dialect.go",
+      "line": 3,
+      "title": "第 3 行：dialect 包 —— 区分 MySQL 还是 PostgreSQL",
+      "description": "📦 **业务含义**：这个生成器支持两种数据库——MySQL 和 PostgreSQL。它俩的「类型不一样」（MySQL 叫 `bigint`，PG 叫 `int8`）、「扫表语句不一样」。所以程序得先知道「现在面对的是哪种方言」。\n\n`dialect`（方言）包就负责表示这个「是哪种数据库」。\n\n🐍 Go 里没有 Java 那种 `enum` 关键字。那怎么表示「只能是 mysql 或 postgresql 这有限几个值」？下一步揭晓。"
+    },
+    {
+      "file": "internal/dialect/dialect.go",
+      "line": 8,
+      "title": "第 8 行：具名类型 —— 用 type 给 string 起个专名",
+      "description": "```go\ntype SqlDialect string\n```\n\n🐍 **Go 基础：具名类型（named type）**\n- 这行创建了一个**新类型** `SqlDialect`，它的「底层」是 string，但它**不是** string——是一个有名有姓的新类型。\n- 注意：是 `type X string`（新类型），不是 `type X = string`（别名）。前者类型安全，后者只是换个名字。\n\n💡 **为什么不直接用 string？**\n- 如果到处用裸 `string` 表示方言，函数签名 `func(s string)` 看不出「这是方言还是表名还是随便什么字符串」。\n- 用 `SqlDialect`，编译器能帮你把关：把一个普通字符串误传进要 `SqlDialect` 的地方会编译报错。**类型即文档，类型即护栏**。"
+    },
+    {
+      "file": "internal/dialect/dialect.go",
+      "line": 10,
+      "title": "第 10~15 行：常量 —— Go 版的「枚举」",
+      "description": "```go\nconst (\n\tMySQL      SqlDialect = \"mysql\"\n\tPostgreSQL SqlDialect = \"postgresql\"\n)\n```\n\n🐍 **Go 基础：const 常量块**\n- `const ( ... )` 一次声明多个常量。这里定义了两个 `SqlDialect` 类型的常量。\n- 「具名类型 + 一组常量」就是 Go 模拟枚举的标准套路：你想表达「方言只能是这两个之一」，就这么写。\n\n📦 别处代码用 `dialect.MySQL`、`dialect.PostgreSQL` 来引用，而不是裸写字符串 `\"mysql\"`——拼错了编译器立刻报错（裸字符串拼错要到运行时才发现）。\n\n💡 类比：这就像把「红绿黄」三个交通灯颜色定义成常量，而不是让每个人随手写 `\"red\"`/`\"Red\"`/`\"RED\"` 各写各的。"
+    },
+    {
+      "file": "internal/dialect/dialect.go",
+      "line": 19,
+      "title": "第 19 行：FromValue —— 把字符串「认」成方言",
+      "description": "```go\nfunc FromValue(s string) (SqlDialect, error) {\n\tswitch SqlDialect(s) {\n\tcase MySQL:\n\t\treturn MySQL, nil\n\tcase PostgreSQL:\n\t\treturn PostgreSQL, nil\n\tdefault:\n\t\treturn \"\", fmt.Errorf(\"不支持的 SQL 方言: %q……\", s)\n\t}\n}\n```\n\n📦 **业务含义**：配置文件里写的是普通字符串 `\"mysql\"`，这个函数把它「认证」成正经的 `SqlDialect` 类型。认不出（比如用户写了 `\"oracle\"`）就返回 error——又是「快速失败」。\n\n🐍 **Go 基础：switch + 类型转换**\n- `SqlDialect(s)` 把 string 转成 SqlDialect（同底层类型可以这样转）。\n- `switch` 比一串 if-else 清爽；Go 的 case **不用写 break**，匹配上自动跳出，不会像 C/Java 那样「掉下去」。\n- `%q` 占位符给字符串加引号（`\"oracle\"`），错误信息更清楚。"
+    },
+    {
+      "file": "internal/typemap/typemap.go",
+      "line": 14,
+      "title": "第 14 行：interface —— Go 接口登场",
+      "description": "进入 `typemap` 包，它负责把数据库类型翻译成 Java 类型（`bigint`→`Long`）。先看接口定义：\n\n```go\ntype TypeMapper interface {\n\tMapToJavaType(dbType string) string\n\tMapToJdbcType(dbType string) string\n}\n```\n\n🐍 **Go 基础：接口 interface**\n- 接口就是「一份方法清单」：谁拥有这两个方法（MapToJavaType、MapToJdbcType），谁就算「是一个 TypeMapper」。\n- 接口只声明「要有哪些方法」，不写具体实现。具体实现由 MySQL 版、PostgreSQL 版各自提供。\n\n📦 **业务含义**：MySQL 和 PostgreSQL 的类型映射规则不同，但「输入数据库类型、输出 Java 类型」这件事是一样的。接口把这个「共同的能力」抽象出来，让上层代码不用关心「现在到底是哪种数据库的映射器」。"
+    },
+    {
+      "file": "internal/typemap/typemap.go",
+      "line": 11,
+      "title": "第 11~13 行：隐式接口 —— Go 和 Java 最大的不同",
+      "description": "看这段注释——它点出了 Go 接口的**精髓**：\n\n```\nGo 小白知识点：接口是隐式实现——任何拥有这两个方法的结构体「自动」满足 TypeMapper，\n无需写 implements 关键字\n```\n\n💡 **核心对比（务必记住）**：\n\n| | Java / C# | Go |\n|---|---|---|\n| 怎么算「实现了接口」| 必须显式写 `class X implements TypeMapper` | **只要方法齐了就自动算**，不用声明 |\n| 接口和实现的关系 | 实现方「主动认领」接口 | 接口「事后」描述已有的能力 |\n\n- Go 里，MySQL 映射器**根本不知道** TypeMapper 接口的存在，它只是恰好有那两个方法——于是它「自动」就是一个 TypeMapper。这叫**鸭子类型**：「走起来像鸭子、叫起来像鸭子，那它就是鸭子」。\n\n💡 好处：接口和实现**解耦**。你可以为别人写的类型「补」一个接口，而不用改它的源码。"
+    },
+    {
+      "file": "internal/typemap/typemap.go",
+      "line": 24,
+      "title": "第 24 行：For —— 按方言挑选合适的映射器（工厂）",
+      "description": "```go\nfunc For(d dialect.SqlDialect, dateType string) (TypeMapper, error) {\n\tswitch d {\n\tcase dialect.MySQL:\n\t\treturn NewMySQL(dateType), nil\n\tcase dialect.PostgreSQL:\n\t\treturn NewPostgreSQL(dateType), nil\n\tdefault:\n\t\treturn nil, fmt.Errorf(\"暂未实现方言 %q 的类型映射\", d)\n\t}\n}\n```\n\n📦 **业务含义**：这是个「工厂函数」——你告诉它方言，它给你**对应的映射器**。返回类型是接口 `TypeMapper`，但实际给的是 MySQL 版或 PG 版的具体实现。\n\n💡 **工程思想：面向接口编程**\n- 上层代码（第 05 条游览的 BuildTemplateData）只拿到一个 `TypeMapper` 接口，调 `mapper.MapToJavaType(...)`，**根本不在乎背后是 MySQL 还是 PG 的实现**。\n- 想加第三种数据库？写个新实现 + 在这里加一个 `case`，上层一行都不用改。这就是接口的威力——**用一个稳定的「插座」（接口），换里面的「电器」（实现）**。\n\n## ✅ 本条游览你学到的\n具名类型（type X string）、const 常量块当枚举、switch（无需 break）、`%q`、interface 接口、**隐式实现/鸭子类型**（Go vs Java 的核心差异）、工厂函数、面向接口编程。\n\n👉 下一条：**05 渲染与编排**（收官！）——看 embed 怎么把模板打进单个二进制、text/template 怎么套模板生成代码，把整条流水线串起来。"
+    }
+  ]
+}

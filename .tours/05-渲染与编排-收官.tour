@@ -1,0 +1,61 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "05 渲染与编排：把流水线串起来（收官）",
+  "description": "最后一站！看 embed 怎么把模板编进单个二进制、text/template 怎么套模板生成 Java 代码，并把整条流水线收尾。预计 18 分钟。",
+  "steps": [
+    {
+      "file": "internal/generator/templates.go",
+      "line": 11,
+      "title": "第 11~12 行：//go:embed —— 把模板「焊」进二进制",
+      "description": "```go\n//go:embed all:templates\nvar templateFS embed.FS\n```\n\n🐍 **Go 基础：//go:embed（很酷的特性！）**\n- `//go:embed` 是一条**编译指令**（不是普通注释！必须紧贴 var、中间不能空行）。\n- 它在**编译时**把 `templates/` 目录下的 14 个 `.tmpl` 模板文件**整个塞进可执行文件里**。\n- `embed.FS` 是一个「虚拟文件系统」，运行时用它读取这些被打包的模板。\n\n💡 **这就是 Go 能做出「单文件可执行程序」的关键**：\n- 发布时只给用户**一个二进制文件**，不用附带 templates 文件夹。用户拷到哪都能跑，不会出现「找不到模板文件」。\n- 类比：把菜谱（模板）直接印在厨师的脑子里（二进制），而不是让他每次现翻菜谱本。这也是 Go 相比 Java（要带一堆 jar 和资源）在分发上的一大优势。"
+    },
+    {
+      "file": "internal/generator/render.go",
+      "line": 16,
+      "title": "第 16 行：TemplateData —— 喂给模板的「数据袋」",
+      "description": "```go\ntype TemplateData struct {\n\tAuthor string\n\t...\n\tModelUpperCamel string  // 大驼峰实体类名，如 SysUser\n\t...\n\tFields []model.FieldMetadata\n}\n```\n\n📦 **业务含义**：模板里写着 `public class {{.ModelUpperCamel}}`，渲染时这个 `{{.ModelUpperCamel}}` 会被替换成 `SysUser`。替换用的所有数据，就装在这个 `TemplateData` 里。\n\n🐍 **呼应 03 条**：注意字段又全是**大写开头**。注释（第 14-15 行）说明了原因：text/template 用「反射」读结构体字段，**只能看到导出（大写）字段**。这就是为什么 model 和这里的字段都必须大写。\n\n💡 把「数据」(TemplateData) 和「模板」(.tmpl 文件) 分开，是模板引擎的基本思想：模板管样子，数据管内容，套在一起出成品。"
+    },
+    {
+      "file": "internal/generator/render.go",
+      "line": 49,
+      "title": "第 49 行：FuncMap —— 让模板能调用 Go 函数",
+      "description": "```go\nvar funcMap = template.FuncMap{\n\t\"camel\":      naming.Camel,\n\t\"upperCamel\": naming.UpperCamel,\n\t\"kebab\":      naming.Kebab,\n\t\"capitalize\": naming.Capitalize,\n}\n```\n\n📦 **业务含义**：模板里除了填数据，有时还要「现场加工」。`FuncMap` 把 02 条游览那些命名函数注册进模板，于是模板里能写 `{{.Name | upperCamel}}`——把 Name 用 upperCamel 函数转成大驼峰再填进去。\n\n🐍 **Go 基础：map（映射/字典）**\n- `map[string]xxx{...}` 是键值对容器，类似 Java 的 HashMap。这里键是「模板里用的函数名」，值是「真正的 Go 函数」。\n- 注意函数名 `naming.Camel` 后面**没有括号**——传的是函数本身（当值用），不是调用它。函数在 Go 里是「一等公民」，可以像普通值一样传来传去。\n\n💡 这把 02 条（命名工具）和模板渲染连了起来——你看，每个包都不是孤立的。"
+    },
+    {
+      "file": "internal/generator/render.go",
+      "line": 60,
+      "title": "第 60 行：Render —— 模板 + 数据 = 代码",
+      "description": "```go\nfunc Render(layer string, data TemplateData) (string, error) {\n\tname := layer + \".tmpl\"\n\ttmpl, err := template.New(name).Funcs(funcMap).\n\t\tParseFS(templateFS, \"templates/\"+name)\n\t...\n\terr := tmpl.Execute(&buf, data)\n\treturn buf.String(), nil\n}\n```\n\n📦 **业务含义**：这是「套模板」的核心三步：\n1. `ParseFS(templateFS, ...)`——从 embed 进来的虚拟文件系统读取并解析模板（如 `po.tmpl`）。\n2. `tmpl.Execute(&buf, data)`——把 `data` 灌进模板，`{{.Xxx}}` 全部被替换。\n3. `buf.String()`——结果是一整段 Java（或 XML）代码字符串。\n\n🐍 注意 `.Funcs(funcMap)` 必须在 `.ParseFS` **之前**调用（注释专门提醒），否则模板解析时找不到 upperCamel 这些函数会报错。顺序敏感，这是个常见的坑。\n\n💡 `Render` 又是返回 `(string, error)`——Go 错误处理的味儿，你现在应该很熟了。"
+    },
+    {
+      "file": "internal/generator/generate.go",
+      "line": 57,
+      "title": "第 57~72 行：Layers —— 14 层的「约定表」",
+      "description": "```go\nvar Layers = map[string]LayerSpec{\n\t\"po\":     {PkgSuffix: \"model.po\", NameSuffix: \"\", Ext: \".java\"},\n\t\"mapper\": {PkgSuffix: \"mapper\", NameSuffix: \"Mapper\", Ext: \".java\"},\n\t...\n\t\"mapper-xml\": {..., Ext: \".xml\", Resource: true},\n\t...（共 14 层）\n}\n```\n\n📦 **业务含义**：生成器要产出 14 种文件（实体、Mapper、Service、Controller、各种 DTO……）。每一层「放哪个包、文件名什么后缀、是 .java 还是 .xml」，全记在这张表里。\n\n💡 **工程思想：约定优于配置 + 开闭原则**\n- 想加一个新层？**只在这张表里加一行**，下面的 `Generate`/`OutputPath` 一个字都不用改。代码「对扩展开放、对修改关闭」。\n- `mapper-xml` 那行 `Resource: true`——它是 XML，要落到 `resources/` 目录而非 `java/` 目录。一个布尔字段就把这个差异收编进同一张表。"
+    },
+    {
+      "file": "internal/generator/generate.go",
+      "line": 101,
+      "title": "第 101 行：OutputPath —— 算出文件该写到哪",
+      "description": "```go\nfunc OutputPath(layer, basePackage, javaRoot, resourcesRoot, modelUpperCamel string) (string, error) {\n\tspec, ok := Layers[layer]\n\tif !ok {\n\t\treturn \"\", fmt.Errorf(\"未知代码层: %q\", layer)\n\t}\n\t...\n}\n```\n\n🐍 **Go 基础：从 map 取值的「逗号 ok」写法**\n- `spec, ok := Layers[layer]`——从 map 取值会返回**两个**结果：值 + 一个 bool「键到底存不存在」。\n- `if !ok` = 「这个层名不在约定表里」→ 返回 error。这能防止「悄悄写错位置」。\n\n📦 **业务含义**：根据约定表把路径拼出来，比如 `po` 层 → `.../com/dahaoshen/demo/model/po/SysUser.java`。`mapper-xml` 因为 `Resource: true`，走另一条分支落到 `resources/mapper/`。\n\n🐍 拼路径用 `filepath.Join`（注释里强调过），它自动适配 Windows 的 `\\` 和 Unix 的 `/`，绝不手写斜杠。"
+    },
+    {
+      "file": "internal/generator/generate.go",
+      "line": 143,
+      "title": "第 143 行：BuildTemplateData —— 流水线的「总装车间」",
+      "description": "```go\nfunc BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateData, error) {\n```\n\n📦 **这是把前 4 条游览全部串起来的地方！** 它把「表元数据 + 配置」组装成模板要的 `TemplateData`，内部依次：\n1. 第 145 行 `dialect.FromValue` —— 认方言（**04 条**）\n2. 第 151 行 `typemap.For` —— 拿类型映射器（**04 条**）\n3. 第 162-172 行 遍历列：`mapper.MapToJavaType` 翻译类型、`naming.Camel` 转字段名（**02 条**）\n4. 第 175 行 `model.FindSinglePrimaryKey` —— 找单主键、快速失败（**03 条**）\n5. 第 190-211 行 填满 `TemplateData` 返回\n\n💡 看第 206 行 `IdType: pk.JavaType`——主键的 Java 类型**直接从字段推导**，不读配置。注释说明了原因：避免有人把 varchar 主键误配成 Long。**让数据自己说话，比让人配置更不容易错**——这是当初设计时特意改的。"
+    },
+    {
+      "file": "internal/generator/generate.go",
+      "line": 229,
+      "title": "第 229 行：Generate —— 同一套代码，又能落盘又能预览",
+      "description": "```go\nfunc Generate(cfg config.Config, meta model.TableMetadata, layers []string, dryRun bool, out io.Writer) error {\n```\n\n🐍 **Go 基础：io.Writer 接口（漂亮的抽象）**\n- 最后一个参数 `out io.Writer`——任何「能被写入」的东西都满足这个接口：文件、内存缓冲、终端 `os.Stdout` 都行。\n- 看第 249-256 行：`dryRun=true` 时，`fmt.Fprintf(out, ...)` 把代码写进 `out`（预览，不落盘）；`dryRun=false` 时（第 258 行起）才真正建目录、写 .java 文件。\n\n💡 **这就是「面向接口」的甜头**（呼应 04 条）：\n- 命令行 `--dry-run` 传 `os.Stdout` → 代码打印到屏幕给你看。\n- 单元测试传一个内存缓冲 `bytes.Buffer` → 在内存里检查生成结果，不碰真实文件。\n- **同一个 Generate，零修改，伺候两种场景**。如果 out 写死成「文件」，测试就得在磁盘上造文件、再清理，又慢又脏。"
+    },
+    {
+      "file": "internal/generator/generate.go",
+      "line": 313,
+      "title": "第 313 行：SelectLayers —— 用「集合」做层过滤",
+      "description": "```go\nfunc SelectLayers(onlyTableModify, withoutApi bool) []string {\n\tvar out []string\n\tfor _, layer := range AllLayers() {\n\t\tif onlyTableModify && !onlyTableModifySet[layer] { continue }\n\t\tif withoutApi && !withoutApiSet[layer] { continue }\n\t\tout = append(out, layer)\n\t}\n\treturn out\n}\n```\n\n🐍 **Go 基础：用 map 当「集合（Set）」**\n- Go 没有现成的 Set 类型，惯用 `map[string]bool` 模拟（第 296、300 行那两个集合）。`onlyTableModifySet[layer]` 查某层在不在集合里，O(1) 极快。\n\n📦 **业务含义**：这就是 01 条游览里 `gen.go` 调的那个函数。它遍历全 14 层，按两个开关「过滤」：\n- 两个都关 → 全 14 层。\n- `--without-api` → 只留后端内部层。\n- 两个都开 → 取**交集**（恰好 po/query/mapper-xml 3 层）。\n\n💡 按 `AllLayers()` 的**固定顺序**遍历，而不是直接遍历 map——因为 Go 遍历 map 是**随机顺序**，会导致每次输出顺序乱跳。这个细节关系到日志和 diff 的稳定性。\n\n## 🎓 毕业检查清单 —— 合上代码，你能答出来吗？\n1. Go 怎么表示 public/private？（**首字母大小写**：大写导出，小写包私有）\n2. Go 没有异常，函数出错怎么办？（返回 `(结果, error)`，调用方 `if err != nil` 检查）\n3. 「实现一个接口」在 Go 里要写 implements 吗？（**不用**，方法齐了就自动满足——隐式接口/鸭子类型）\n4. `//go:embed` 解决了什么问题？（把模板打进二进制，实现**单文件可执行**，发布不用带模板目录）\n5. `io.Writer` 这个接口参数带来了什么好处？（同一个 Generate，落盘和测试/预览共用，零重复）\n6. 想给生成器加「第 15 层」要改哪里？（在 `Layers` 表加一行 + `AllLayers()` 列表加一项，编排代码不用动）\n\n**动手建议**：试着在 `Layers` 里照葫芦画瓢加一个你假想的新层，跑 `go test ./...` 看会不会绿——亲手改一次代码，胜过读十遍。\n\n🎉 **恭喜你走完整个生成器！** 你不仅看懂了一个真实项目的全流水线，还顺手学完了 Go 的核心语法：包、函数、循环、结构体、切片、map、接口、错误处理、embed。回到 `docs/TUTORIAL.md` 可以再用文字版巩固一遍。"
+    }
+  ]
+}
