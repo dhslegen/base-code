@@ -13,6 +13,10 @@ import (
 	// database/sql 通过 init() 注册驱动机制工作：go-sql-driver/mysql 的 init() 会调用
 	// sql.Register("mysql", &MySQLDriver{})，这样 sql.Open("mysql", dsn) 就能找到驱动。
 	// 若不导入，sql.Open 会报 "unknown driver mysql"。
+	_ "github.com/jackc/pgx/v5/stdlib" // 空白导入：注册 pgx 的 database/sql 兼容驱动，驱动名为 "pgx"。
+	// pgx 是 Go 生态最主流的 PostgreSQL 驱动。`pgx/v5/stdlib` 子包封装了原生 pgx 连接池，
+	// 使其符合标准库 database/sql 接口（*sql.DB），从而与 sql.Open 无缝配合。
+	// 注意：pgx 的原生 API（pgxpool.Pool）性能更高，但这里统一用 database/sql 便于复用扫表逻辑。
 	"github.com/spf13/cobra"
 
 	"github.com/dahaoshen/base-code-go/internal/config"
@@ -65,9 +69,14 @@ var genCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		// 5. 打开数据库连接
+		// 5. 按方言选择驱动名与 DSN，再打开数据库连接。
 		// sql.Open 不会立即连接，只构造连接池——实际连接在 ScanTable 首次查询时建立。
-		db, err := sql.Open("mysql", dsn(cfg))
+		// Go 小白知识点：不同数据库的 DSN 格式由各自驱动定义，彼此不通用：
+		//   - MySQL  DSN：user:pass@tcp(host:port)/db?charset=utf8mb4&parseTime=true
+		//   - PG DSN：  host=… port=… user=… password=… dbname=… sslmode=disable（key=value 风格）
+		// 这里用 dbDriverAndDSN 把「选驱动」和「拼 DSN」封装到一起，避免 if-else 散落在业务逻辑里。
+		driverName, dataSourceName := dbDriverAndDSN(d, cfg)
+		db, err := sql.Open(driverName, dataSourceName)
 		if err != nil {
 			return err
 		}
@@ -115,13 +124,28 @@ func init() {
 	_ = genCmd.MarkFlagRequired("tables")
 }
 
-// dsn 拼接 MySQL DSN（Data Source Name）连接串。
+// dbDriverAndDSN 按方言返回 database/sql 驱动名与连接串（DSN）。
 //
-// 格式：username:password@tcp(host:port)/database?params
-// Go 的 database/sql 不规定 DSN 格式，由各驱动自己定义；go-sql-driver/mysql 用此格式。
-func dsn(c config.Config) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true",
-		c.Datasource.Username, c.Datasource.Password, c.Datasource.Host, c.Datasource.Port, c.Datasource.Database)
+// Go 小白知识点：database/sql 把「驱动注册」与「连接串格式」都交给第三方包自行定义。
+//   - MySQL  驱动名 "mysql"，DSN 格式：user:pass@tcp(host:port)/db?charset=utf8mb4&parseTime=true
+//   - pgx    驱动名 "pgx"，  DSN 格式：host=… port=… user=… password=… dbname=… sslmode=disable
+//
+// switch 默认分支兜底 MySQL，保持向后兼容；新增方言只需追加 case。
+func dbDriverAndDSN(d dialect.SqlDialect, cfg config.Config) (string, string) {
+	ds := cfg.Datasource
+	switch d {
+	case dialect.PostgreSQL:
+		// pgx 的 stdlib 驱动名为 "pgx"（由 pgx/v5/stdlib 的 init() 注册）。
+		// PostgreSQL DSN 使用 key=value 格式（libpq 风格），各字段以空格分隔。
+		// sslmode=disable：本地/内网环境通常不启用 TLS，生产环境可改为 require/verify-full。
+		return "pgx", fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+			ds.Host, ds.Port, ds.Username, ds.Password, ds.Database)
+	default: // mysql（以及未来尚未支持的方言均兜底 mysql）
+		// go-sql-driver/mysql 驱动名 "mysql"，DSN 采用 URI 风格：user:pass@tcp(host:port)/db?params。
+		// parseTime=true：让驱动把 DATE/DATETIME 列自动扫描为 time.Time（否则需手动解析字符串）。
+		return "mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true",
+			ds.Username, ds.Password, ds.Host, ds.Port, ds.Database)
+	}
 }
 
 // splitTables 将逗号分隔的表名字符串拆分为切片，并过滤空白项。
