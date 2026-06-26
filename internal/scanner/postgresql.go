@@ -39,9 +39,13 @@ func NewPostgreSQL(db *sql.DB) TableScanner { return postgreSQLScanner{db: db} }
 //
 // COALESCE(expr, '') 等价于 Java 的 Objects.toString(x, "")，把 NULL 换成空串。
 // col_description(oid, attnum) 是 PG 内置函数，按 (表oid, 列序号) 返回列注释。
+//
+// pg_class JOIN 上的 relkind = 'r' 不可省：pg_class 是 PG 的"万物表"（表/视图/索引/序列同居一表），
+// 若只按 relname 匹配，碰到同名视图/索引会让每列重复出现（笛卡尔积"列膨胀"），
+// 生成的 PO 出现重复字段、编译失败。'r' 锁定"普通表"，与下方 pgTableCommentSQL 的过滤保持一致。
 const pgColumnSQL = `SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, is_nullable, column_default, COALESCE(col_description(pgc.oid, pa.attnum), '') as column_comment
 FROM information_schema.columns c
-LEFT JOIN pg_class pgc ON pgc.relname = c.table_name
+LEFT JOIN pg_class pgc ON pgc.relname = c.table_name AND pgc.relkind = 'r'
 LEFT JOIN pg_attribute pa ON pa.attrelid = pgc.oid AND pa.attname = c.column_name
 WHERE c.table_name = $1 AND c.table_schema = 'public'
 ORDER BY c.ordinal_position`
