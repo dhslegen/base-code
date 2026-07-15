@@ -1,0 +1,98 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "06 自动发版：CI 与 goreleaser（教学收官）",
+  "description": "一 push tag，GitHub 自动编 6 平台、打包、发 Release 的全过程。逐行读懂 .goreleaser.yaml + release.yml。预计 20 分钟。",
+  "ref": "tutorial-v1",
+  "steps": [
+    {
+      "file": ".goreleaser.yaml",
+      "line": 1,
+      "title": "第 1 行：欢迎来到「自动发版」这一课",
+      "description": "```yaml\nversion: 2\n```\n👋 前 5 条导览讲的是**程序怎么跑**；这一条讲**程序怎么变成能下载的安装包**——即「发版」。\n\n你刚在本地亲手跑过 `goreleaser release --snapshot`，一次编出了 6 个平台的二进制。这条导览就带你逐行读懂**那次干跑背后的两张配置图纸**：\n\n| 文件 | 角色 | 一句话 |\n|---|---|---|\n| `.goreleaser.yaml` | **图纸** | 编什么平台、怎么打包、怎么算校验和 |\n| `.github/workflows/release.yml` | **工头** | 你一 push tag，就在 GitHub 云端照图纸干活 |\n\n🐍 **YAML 小课堂**：`key: value` 就是「键: 值」。`version: 2` = 告诉 goreleaser「我用第 2 版配置格式」。YAML 靠**缩进**表示层级（像大纲），不用大括号——这是它和 JSON 最大的区别。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 3,
+      "title": "第 3 行：project_name —— 产物名字的源头",
+      "description": "```yaml\nproject_name: base-code\n```\n📦 这个名字会出现在**每一个产物文件名**里。回想你干跑时看到的：\n`base-code_..._linux_amd64.tar.gz` —— 开头的 `base-code` 就是从这里来的。\n\n💡 一处定义、处处复用：改一次这里，所有产物、压缩包、校验和条目全跟着变。这就是 DRY（Don't Repeat Yourself）。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 5,
+      "title": "第 5~8 行：builds —— 「怎么编译」的总说明",
+      "description": "```yaml\nbuilds:\n  - id: base-code\n    main: .\n    binary: base-code\n```\n🐍 **YAML 小课堂：列表**。前面带 `-` 的是**列表项**（可以有很多个）。这里 `builds:` 下只有一项，`id` 是它的名字。\n\n- `main: .` —— 入口代码在**当前目录**（`.` 表示「这里」）。对应你 Go 项目根目录的 `main.go`。\n- `binary: base-code` —— 编出来的可执行文件叫 `base-code`（Windows 上会自动加 `.exe`）。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 9,
+      "title": "第 9~10 行：CGO_ENABLED=0 —— 编「谁都能跑」的静态包",
+      "description": "```yaml\n    env:\n      - CGO_ENABLED=0\n```\n📦 这行是本课**第一个关键开关**。CGO 是 Go 调用 C 代码的桥；关掉它（`=0`），编出来的二进制就是**静态链接**的——所有依赖打进一个文件，不挂靠系统的 C 库。\n\n还记得干跑时 `file` 命令对 linux 产物的描述吗？\n```\nELF 64-bit ... statically linked ... stripped\n```\n那个 `statically linked` 就是这行的功劳。\n\n💡 **好处**：这个二进制扔进**任何** Linux（Ubuntu、CentOS、Alpine…）都能直接跑，不用装依赖、不挑发行版。分发体验瞬间从「地狱」变「天堂」——这也是很多人选 Go 做 CLI 的理由。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 11,
+      "title": "第 11~17 行：goos × goarch —— 6 个平台的「乘法表」",
+      "description": "```yaml\n    goos:\n      - linux\n      - darwin\n      - windows\n    goarch:\n      - amd64\n      - arm64\n```\n📦 `goos` = 操作系统（darwin 就是 macOS），`goarch` = CPU 架构（amd64=Intel/AMD，arm64=苹果M系列/树莓派）。\n\n💡 **这里藏着一个笛卡尔积**：goreleaser 把两个列表**两两组合**——\n\n| | amd64 | arm64 |\n|---|---|---|\n| **linux** | ✅ | ✅ |\n| **darwin** | ✅ | ✅ |\n| **windows** | ✅ | ✅ |\n\n3 × 2 = **6 个平台**。这正是你干跑时看到「building ... 6 次」、最后 `dist/` 里 6 个包的原因。\n\n🔑 **Go 的杀手锏**：你在一台 arm64 Mac 上，一句配置就编出了 Windows、Linux 的二进制——这叫**交叉编译**，无需那些平台的机器。换成 C/Java 想做到这点要费老大劲。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 18,
+      "title": "第 18~19 行：ldflags -s -w —— 给二进制「减肥」",
+      "description": "```yaml\n    ldflags:\n      - -s -w\n```\n📦 `ldflags` 是传给**链接器**（linker）的参数：\n- `-s` —— 去掉符号表\n- `-w` —— 去掉调试信息（DWARF）\n\n两个一起 = 把「给调试器看的额外信息」全剥掉，二进制**瘦一圈**。干跑时 `file` 输出里的 `stripped`（已剥离）就是这个效果。\n\n💡 **权衡**：剥了之后线上崩溃的栈信息会不全，不好深度调试；但发给用户的**发行版**追求「小而快」，调试留给开发环境即可——这是典型的「发布构建 vs 开发构建」取舍。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 21,
+      "title": "第 21~27 行：archives —— 打包成压缩包（还分平台）",
+      "description": "```yaml\narchives:\n  - id: default\n    formats: [tar.gz]\n    name_template: \"{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}\"\n    format_overrides:\n      - goos: windows\n        formats: [zip]\n```\n📦 光有二进制还不够，得连 README 一起打成压缩包。\n\n- `formats: [tar.gz]` —— 默认打成 `.tar.gz`（Linux/Mac 的老朋友）。\n- `name_template` —— 文件名模板。`{{ .Os }}` 这种双花括号是**占位符**，goreleaser 会替换成实际值，拼出 `base-code_v0.1.0_linux_amd64` 这样的名字。\n- `format_overrides` —— **特例覆盖**：遇到 `windows` 改用 `.zip`。\n\n💡 为什么 Windows 要特殊照顾？因为 Windows 用户双击就能解 `.zip`，却没几个人装了 `tar`。**为不同用户的习惯做贴心默认**，就是好工具的细节。回看干跑产物：4 个 `.tar.gz` + 2 个 windows `.zip`，完全对上。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 29,
+      "title": "第 29~30 行：checksum —— 一份「防伪清单」",
+      "description": "```yaml\nchecksum:\n  name_template: \"checksums.txt\"\n```\n📦 goreleaser 会为每个压缩包算一个 **SHA-256 指纹**，汇总进 `checksums.txt`。你干跑时已经见过它：6 行，每行一个包的哈希。\n\n💡 **用途**：用户下载后自己算一遍哈希，和这份清单一对——\n- 对得上 → 文件完整、没被掉包；\n- 对不上 → 下载损坏或被人动过手脚，别运行。\n\n这是分发可信二进制的**基本礼仪**，尤其是给陌生人用的开源工具。"
+    },
+    {
+      "file": ".goreleaser.yaml",
+      "line": 32,
+      "title": "第 32~33 行：release —— 直接发布，不留草稿",
+      "description": "```yaml\nrelease:\n  draft: false\n```\n📦 `draft: false` = 发版时**直接公开**，不先存成草稿等你手动点「发布」。\n\n💡 想更稳妥的话可以改成 `draft: true`：CI 先建一个**草稿 Release**，你去 GitHub 页面检查产物无误，再手动点发布。对第一次发版的人，`draft: true` 是个很好的「安全气囊」——不过这取决于你的偏好。\n\n✅ **`.goreleaser.yaml` 读完了**！它是「图纸」：编 6 平台 → 静态 + 瘦身 → 打包(分平台) → 算校验和 → 发布。\n\n👉 下面转到**工头** `release.yml`：看是谁、在什么时机、照着这张图纸开工。"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 2,
+      "title": "第 2~4 行：on push tags v* —— 整套自动化的「扳机」",
+      "description": "```yaml\non:\n  push:\n    tags: [\"v*\"]\n```\n🔑 这是**最关键的三行**。`on` = 「什么事件发生时启动」。这里是：**当你 push 一个匹配 `v*` 的 tag**。\n\n🐍 **GitHub Actions 概念**：GitHub 会盯着你的仓库，一旦发生 `on` 里描述的事件，就自动在云端跑下面的活。这套机制叫 **CI/CD**（持续集成/持续交付）。\n\n💡 **`v*` 是个 glob，从头锚定！** 它只匹配**以字母 v 开头**的 tag：`v0.1.0` ✅、`v1.2.3` ✅；但 `tutorial-v1` ❌（开头是 t）。\n\n**推演一遍**：仓库里那个 `tutorial-v1` 教学标签，push 时会不会触发发版？\n→ `tutorial-v1` 开头是 `t`，不匹配 `v*` → **不触发**。所以你的教学快照标签和发版流程**天然隔离**，互不打扰。（这也解释了为什么 `gh run list` 里一条发版记录都没有。）"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 5,
+      "title": "第 5~6 行：permissions contents write —— 给 CI 发放「写权限」",
+      "description": "```yaml\npermissions:\n  contents: write\n```\n📦 CI 默认只有**只读**权限（安全起见）。但发版要**创建 Release、上传 6 个包**，这是「写」操作。\n`contents: write` 就是把这张写权限的通行证发给这次运行。\n\n💡 **最小权限原则**：只开必需的权限，不多给。少了这行，发版会因「权限不足」失败——这是新手第一次配 Actions 最常踩的坑之一。"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 7,
+      "title": "第 7~9 行：jobs / runs-on —— 借一台云端机器干活",
+      "description": "```yaml\njobs:\n  goreleaser:\n    runs-on: ubuntu-latest\n```\n📦 `jobs` 下面是要干的活（job），这里就一个，叫 `goreleaser`。\n`runs-on: ubuntu-latest` = **在 GitHub 免费提供的一台全新 Ubuntu 云主机上跑**。\n\n💡 关键心智模型：这台机器是**一次性的**——每次发版都是干净的新机器，跑完即焚。所以下面每一步都得**从零准备环境**（装 Go、拉代码…），不能假设「上次装过」。"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 10,
+      "title": "第 10~12 行：checkout fetch-depth 0 —— 把代码和「全部历史」拉下来",
+      "description": "```yaml\n    steps:\n      - uses: actions/checkout@v4\n        with: { fetch-depth: 0 }\n```\n🐍 **Actions 概念**：`steps` 是这台机器**依次执行的步骤**；`uses:` 表示「直接用别人写好的现成动作」（这里是官方的 `checkout`，负责把你的仓库代码克隆到云主机上）。\n\n💡 **`fetch-depth: 0` 不能省！** 默认 checkout 为了快，只拉最新一次提交（浅克隆）。但 goreleaser 要读**完整的 tag 和 commit 历史**来定版本号、生成更新日志。\n少了这行 → goreleaser 看不到 tag → 版本号错乱甚至报错。`0` 代表「拉全部历史」。"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 13,
+      "title": "第 13~14 行：setup-go —— 在这台新机器上装 Go",
+      "description": "```yaml\n      - uses: actions/setup-go@v5\n        with: { go-version: stable }\n```\n📦 云主机是空的，得先装 Go 编译器（还记得吗？goreleaser 自己不编译，它**指挥 `go build`**）。\n`go-version: stable` = 装当前的稳定版 Go。\n\n💡 这正呼应上一步的「一次性机器」心智：每次都从零装环境，保证发版结果**可复现**，不受某台机器的历史状态影响。"
+    },
+    {
+      "file": ".github/workflows/release.yml",
+      "line": 15,
+      "title": "第 15~17 行：goreleaser-action —— 真·发版，就这三行",
+      "description": "```yaml\n      - uses: goreleaser/goreleaser-action@v6\n        with: { version: \"~> v2\", args: release --clean }\n        env: { GITHUB_TOKEN: \"${{ secrets.GITHUB_TOKEN }}\" }\n```\n🎯 前面都是铺垫，这一步才**真正调用 goreleaser**，照着 `.goreleaser.yaml` 图纸干活。\n\n- `version: \"~> v2\"` —— 用 goreleaser **v2 系列**的最新版（`~>` 意为「兼容范围内自动升级」，锁大版本防意外）。\n- `args: release --clean` —— 注意：**没有 `--snapshot`**！你本地干跑加了 `--snapshot`（不发布、伪版本号）；这里是**动真格**：按 tag 版本号编译、打包、**上传到 GitHub Release**。\n- `GITHUB_TOKEN` —— 上传需要身份凭证。`${{ secrets.GITHUB_TOKEN }}` 是 GitHub **自动注入**的临时令牌，你不用手动创建、也不会泄露在代码里。\n\n💡 **本地干跑 ↔ 云端真发** 就差这一个 `--snapshot`。你已经在本地把「图纸」验证过一遍了，云端只是换台干净机器、去掉安全阀、把产物挂上 Release。**发版对你不再是黑箱。**\n\n## 🎓 毕业检查清单 —— 合上代码，能答出来吗？\n1. `.goreleaser.yaml` 和 `release.yml` 分别扮演什么角色？（图纸 / 工头）\n2. 为什么一台 Mac 能编出 Windows 的 `.exe`？（交叉编译 goos×goarch）\n3. `CGO_ENABLED=0` 带来什么好处？（静态链接，任何 Linux 都能跑）\n4. push `tutorial-v1` 会触发发版吗？为什么？（不会，`v*` 从头锚定，t 开头不匹配）\n5. 本地 `--snapshot` 和云端 `release --clean` 差在哪？（前者不发布/伪版本，后者真上传 Release）\n\n## ✅ 本条游览你学到的\nYAML 键值/列表/缩进、goreleaser 图纸（builds/archives/checksum）、交叉编译 goos×goarch、静态链接与 `-s -w` 瘦身、GitHub Actions（on/jobs/steps/uses）、`fetch-depth: 0`、`secrets.GITHUB_TOKEN`。\n\n**下一步建议**：真想发布时，打一个 `v0.1.0` tag 并 push，去仓库的 Actions 页亲眼看这套流程自动跑起来——那将是这门课最有成就感的一刻。🚀"
+    }
+  ]
+}
