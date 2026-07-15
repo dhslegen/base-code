@@ -134,7 +134,7 @@ func FromValue(s string) (SqlDialect, error) { ... }
 >
 > Java 版用枚举：
 > ```java
-> // com.wanji.software.basecode.enums.SqlDialect
+> // com.example.basecode.enums.SqlDialect
 > public enum SqlDialect {
 >     MYSQL("mysql", "MySQL数据库"),
 >     POSTGRESQL("postgresql", "PostgreSQL数据库");
@@ -242,7 +242,7 @@ func For(d dialect.SqlDialect, dateType string) (TypeMapper, error) { ... }
 
 > **Java 对照**
 >
-> Java 版：`TypeMapper` 接口定义在 `com.wanji.software.basecode.mapper.TypeMapper`，方法签名为 `String mapToJavaType(String dbType)` 和 `JDBCType mapToJdbcType(String dbType)`（注意 Java 版 `mapToJdbcType` 返回 `java.sql.JDBCType` 枚举，Go 版返回字符串）。实现类为 `MySqlTypeMapper` 和 `PostgreSqlTypeMapper`，由 `TypeMapperFactory` 按方言分发。
+> Java 版：`TypeMapper` 接口定义在 `com.example.basecode.mapper.TypeMapper`，方法签名为 `String mapToJavaType(String dbType)` 和 `JDBCType mapToJdbcType(String dbType)`（注意 Java 版 `mapToJdbcType` 返回 `java.sql.JDBCType` 枚举，Go 版返回字符串）。实现类为 `MySqlTypeMapper` 和 `PostgreSqlTypeMapper`，由 `TypeMapperFactory` 按方言分发。
 
 > **Go 小白知识点**
 >
@@ -313,7 +313,7 @@ func FindSinglePrimaryKey(fields []FieldMetadata, tableName string) (FieldMetada
 
 > **Java 对照**
 >
-> Java 版：`ColumnMetadata`、`TableMetadata`、`FieldMetadata` 均位于 `com.wanji.software.basecode.model` 包，用 Lombok `@Data` 生成 getter/setter。Go 版结构体直接访问导出字段，无需 getter/setter（Go 惯用「扁平结构」，不封装简单数据载体）。
+> Java 版：`ColumnMetadata`、`TableMetadata`、`FieldMetadata` 均位于 `com.example.basecode.model` 包，用 Lombok `@Data` 生成 getter/setter。Go 版结构体直接访问导出字段，无需 getter/setter（Go 惯用「扁平结构」，不封装简单数据载体）。
 >
 > Java 版主键校验抛 `IllegalStateException`，Go 版 `FindSinglePrimaryKey` 返回 `(FieldMetadata, error)`，调用方显式检查——这是 Go「error as value」哲学，错误是普通返回值，不是异常。
 
