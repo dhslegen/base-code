@@ -1,4 +1,4 @@
-module github.com/dahaoshen/base-code-go
+module github.com/dhslegen/base-code
 
 go 1.25.0
 

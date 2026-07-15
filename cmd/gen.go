@@ -19,10 +19,10 @@ import (
 	// 注意：pgx 的原生 API（pgxpool.Pool）性能更高，但这里统一用 database/sql 便于复用扫表逻辑。
 	"github.com/spf13/cobra"
 
-	"github.com/dahaoshen/base-code-go/internal/config"
-	"github.com/dahaoshen/base-code-go/internal/dialect"
-	"github.com/dahaoshen/base-code-go/internal/generator"
-	"github.com/dahaoshen/base-code-go/internal/scanner"
+	"github.com/dhslegen/base-code/internal/config"
+	"github.com/dhslegen/base-code/internal/dialect"
+	"github.com/dhslegen/base-code/internal/generator"
+	"github.com/dhslegen/base-code/internal/scanner"
 )
 
 // flag 变量：cobra 会把命令行 --config=xxx 等解析结果写入这些变量。

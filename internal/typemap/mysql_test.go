@@ -5,7 +5,7 @@ package typemap
 import (
 	"testing"
 
-	"github.com/dahaoshen/base-code-go/internal/dialect"
+	"github.com/dhslegen/base-code/internal/dialect"
 )
 
 // TestMySQL_JavaType 验证类型映射：非 java.lang 类型返回全限定名（FQN），按 dateType 分支。

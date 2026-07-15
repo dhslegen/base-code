@@ -12,7 +12,7 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 
-	"github.com/dahaoshen/base-code-go/internal/dialect"
+	"github.com/dhslegen/base-code/internal/dialect"
 )
 
 // TestMySQL_ScanTable 验证 MySQL 扫表器在 happy path 下的完整行为：

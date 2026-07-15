@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/dahaoshen/base-code-go/internal/model"
-	"github.com/dahaoshen/base-code-go/internal/naming"
+	"github.com/dhslegen/base-code/internal/model"
+	"github.com/dhslegen/base-code/internal/naming"
 )
 
 // TemplateData 是模板渲染上下文，所有字段首字母大写（导出），才能被 text/template 的 {{.Field}} 访问。

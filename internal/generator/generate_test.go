@@ -17,8 +17,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dahaoshen/base-code-go/internal/config"
-	"github.com/dahaoshen/base-code-go/internal/model"
+	"github.com/dhslegen/base-code/internal/config"
+	"github.com/dhslegen/base-code/internal/model"
 )
 
 // sampleMeta 构造 sys_user 表的最小化元数据：一个 bigint 主键 + 一个 varchar 字段。

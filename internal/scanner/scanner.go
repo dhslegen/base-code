@@ -16,8 +16,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/dahaoshen/base-code-go/internal/dialect"
-	"github.com/dahaoshen/base-code-go/internal/model"
+	"github.com/dhslegen/base-code/internal/dialect"
+	"github.com/dhslegen/base-code/internal/model"
 )
 
 // TableScanner 扫表接口（隐式实现）。

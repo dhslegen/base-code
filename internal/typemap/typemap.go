@@ -5,7 +5,7 @@ package typemap
 import (
 	"fmt"
 
-	"github.com/dahaoshen/base-code-go/internal/dialect"
+	"github.com/dhslegen/base-code/internal/dialect"
 )
 
 // TypeMapper 是类型映射接口。

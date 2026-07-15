@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dahaoshen/base-code-go/internal/model"
+	"github.com/dhslegen/base-code/internal/model"
 )
 
 // postgreSQLScanner 持有数据库连接，实现 TableScanner 接口。

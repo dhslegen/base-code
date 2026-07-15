@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dahaoshen/base-code-go/cmd"
+	"github.com/dhslegen/base-code/cmd"
 )
 
 func main() {

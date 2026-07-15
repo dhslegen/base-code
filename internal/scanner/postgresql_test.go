@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/dahaoshen/base-code-go/internal/dialect"
+	"github.com/dhslegen/base-code/internal/dialect"
 )
 
 // TestPostgreSQL_ScanTable 验证 PG 扫表：列类型拼装、主键标记、注释。

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dahaoshen/base-code-go/internal/model"
+	"github.com/dhslegen/base-code/internal/model"
 )
 
 // sampleData 构造一份完整的模板渲染测试数据，对应 sys_user 表。

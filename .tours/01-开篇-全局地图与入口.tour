@@ -8,7 +8,7 @@
       "file": "main.go",
       "line": 9,
       "title": "第 9 行：欢迎！这是程序的大门",
-      "description": "👋 欢迎来到 **base-code-go** 的源码课堂！\n\n这是一个**数据库代码生成器**：你给它一张数据库表，它自动生成一整套 Java 代码（实体类、Mapper、Service、Controller……共 14 层）。\n\n我们从这扇大门 `package main` 开始。\n\n🐍 **Go 基础：package（包）**\n- Go 把代码按「包」组织，每个文件夹是一个包，文件第一行 `package xxx` 声明自己属于哪个包。\n- `package main` 很特殊：**只有它能编译成可执行程序**。其他包（如后面会看到的 naming、model）都是「库」，被 main 调用。\n- 类比：main 包像一栋楼的大门和总开关，其他包像各个房间。\n\n📦 这个文件只有 30 多行，干一件事：**启动程序、处理错误、决定退出码**。真正的活儿都在别的包里。"
+      "description": "👋 欢迎来到 **base-code** 的源码课堂！\n\n这是一个**数据库代码生成器**：你给它一张数据库表，它自动生成一整套 Java 代码（实体类、Mapper、Service、Controller……共 14 层）。\n\n我们从这扇大门 `package main` 开始。\n\n🐍 **Go 基础：package（包）**\n- Go 把代码按「包」组织，每个文件夹是一个包，文件第一行 `package xxx` 声明自己属于哪个包。\n- `package main` 很特殊：**只有它能编译成可执行程序**。其他包（如后面会看到的 naming、model）都是「库」，被 main 调用。\n- 类比：main 包像一栋楼的大门和总开关，其他包像各个房间。\n\n📦 这个文件只有 30 多行，干一件事：**启动程序、处理错误、决定退出码**。真正的活儿都在别的包里。"
     },
     {
       "file": "main.go",

@@ -4,7 +4,7 @@ package typemap
 import (
 	"testing"
 
-	"github.com/dahaoshen/base-code-go/internal/dialect"
+	"github.com/dhslegen/base-code/internal/dialect"
 )
 
 // TestPostgreSQL_JavaType 验证 PG 类型映射（FQN、dateType、JDBC）。

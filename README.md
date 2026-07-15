@@ -1,4 +1,4 @@
-# base-code-go
+# base-code
 
 数据库代码生成器（Go 版）。连接 MySQL / PostgreSQL，扫描表结构，按约定生成 MyBatis-Plus 分层 Java 代码（全 14 层）。
 
@@ -11,23 +11,17 @@
 ### 方式一：go install（推荐，需 Go 1.21+）
 
 ```bash
-go install github.com/dahaoshen/base-code-go@latest
+go install github.com/dhslegen/base-code@latest
 ```
 
-> **注意二进制名称**：`go install` 会根据模块路径末段产出名为 `base-code-go` 的二进制。
-> cobra 的 `Use` 字段为 `base-code`，因此 `--help` 输出里的命令名是 `base-code`。
-> 实际运行时请用 `base-code-go gen ...`（安装后的二进制名），或手动将其重命名/创建别名：
->
-> ```bash
-> # 创建别名（加到 ~/.zshrc 或 ~/.bashrc）
-> alias base-code="base-code-go"
-> ```
+> 安装后二进制名即 `base-code`，与 `--help` 命令名、发行包名完全一致。
+> 私有仓库需先设 `export GOPRIVATE=github.com/dhslegen` 并配置好 git 认证。
 
 ### 方式二：本地构建
 
 ```bash
-git clone https://github.com/dahaoshen/base-code-go.git
-cd base-code-go
+git clone https://github.com/dhslegen/base-code.git
+cd base-code
 go build -o base-code .
 ./base-code gen --help
 ```

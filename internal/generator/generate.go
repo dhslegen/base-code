@@ -28,11 +28,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dahaoshen/base-code-go/internal/config"
-	"github.com/dahaoshen/base-code-go/internal/dialect"
-	"github.com/dahaoshen/base-code-go/internal/model"
-	"github.com/dahaoshen/base-code-go/internal/naming"
-	"github.com/dahaoshen/base-code-go/internal/typemap"
+	"github.com/dhslegen/base-code/internal/config"
+	"github.com/dhslegen/base-code/internal/dialect"
+	"github.com/dhslegen/base-code/internal/model"
+	"github.com/dhslegen/base-code/internal/naming"
+	"github.com/dhslegen/base-code/internal/typemap"
 )
 
 // LayerSpec 描述一层的输出约定：包后缀、文件名在 ModelUpperCamel 后追加的后缀、扩展名、是否落 resources 根。
