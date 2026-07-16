@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,6 +19,7 @@ type Config struct {
 	Author        string     `yaml:"author"`
 	UseJakarta    *bool      `yaml:"use-jakarta"` // 指针：区分「未配置」与「配置为 false」
 	DateType      string     `yaml:"date-type"`
+	Api           Api        `yaml:"api"`
 	Datasource    Datasource `yaml:"datasource"`
 	AutoFill      AutoFill   `yaml:"auto-fill"`
 }
@@ -30,6 +32,15 @@ type Datasource struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Database string `yaml:"database"`
+}
+
+// Api 表示生成 API 层所需的服务标识配置。
+// service-name 填入 @FeignClient(name=...)（注册中心应用名）；
+// base-path 是所有 API 端点的基础路径前缀。
+// 两者缺省均从 base-package 末段派生（见 applyDefaults）。
+type Api struct {
+	ServiceName string `yaml:"service-name"`
+	BasePath    string `yaml:"base-path"`
 }
 
 // AutoFill 表示自动填充列的约定。
@@ -79,5 +90,17 @@ func applyDefaults(c *Config) {
 	}
 	if len(c.AutoFill.UpdateColumns) == 0 {
 		c.AutoFill.UpdateColumns = []string{"updated_at", "updated_by"}
+	}
+	// api 缺省派生：service-name = base-package 末段；base-path = "/" + 末段。
+	// 显式配置优先——只补空缺字段，两字段各自独立判断。
+	seg := c.BasePackage
+	if i := strings.LastIndex(seg, "."); i >= 0 {
+		seg = seg[i+1:]
+	}
+	if c.Api.ServiceName == "" {
+		c.Api.ServiceName = seg
+	}
+	if c.Api.BasePath == "" {
+		c.Api.BasePath = "/" + seg
 	}
 }

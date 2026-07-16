@@ -63,3 +63,44 @@ func TestLoad_ExplicitUseJakartaFalse(t *testing.T) {
 		t.Errorf("显式 false 不应被覆盖，得到: %v", cfg.UseJakarta)
 	}
 }
+
+// TestLoad_ApiDefaults 验证未配置 api: 时从 base-package 末段派生 service-name 与 base-path。
+func TestLoad_ApiDefaults(t *testing.T) {
+	cfg, err := Load("../../testdata/base-code.yaml") // base-package: com.dahaoshen.demo，无 api 节
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.Api.ServiceName != "demo" {
+		t.Errorf("ServiceName = %q, want demo（base-package 末段）", cfg.Api.ServiceName)
+	}
+	if cfg.Api.BasePath != "/demo" {
+		t.Errorf("BasePath = %q, want /demo", cfg.Api.BasePath)
+	}
+}
+
+// TestLoad_ApiExplicit 验证显式 api: 配置优先于派生。
+func TestLoad_ApiExplicit(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	yaml := `base-code:
+  base-package: com.example.hello
+  api:
+    service-name: hello-service
+    base-path: /admin-api/hello
+  datasource:
+    dialect: mysql
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.Api.ServiceName != "hello-service" {
+		t.Errorf("ServiceName = %q, want hello-service", cfg.Api.ServiceName)
+	}
+	if cfg.Api.BasePath != "/admin-api/hello" {
+		t.Errorf("BasePath = %q, want /admin-api/hello", cfg.Api.BasePath)
+	}
+}
