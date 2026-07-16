@@ -91,6 +91,11 @@ base-code:
   # use-jakarta: true                     # true=jakarta 包（Spring Boot 3+），false=javax 包
   # date-type: modern                     # modern=java.time.*（默认），legacy=java.util.Date
 
+  # API 层服务标识（可选；缺省从 base-package 末段派生：demo → demo、/demo）
+  # api:
+  #   service-name: demo-service           # @FeignClient 的服务名（注册中心应用名）
+  #   base-path: /admin-api/demo           # 所有 API 端点的基础路径前缀
+
   datasource:
     dialect: mysql                      # mysql 或 postgresql
     host: localhost
@@ -167,11 +172,6 @@ base-code completion fish > ~/.config/fish/completions/base-code.fish
 
 ---
 
-## 生成 API 层的工程级前置依赖
+## 自包含
 
-生成的 `api` / `api-impl` 层引用以下**目标工程需自行预置**的公共类（base-code 不生成它们，每个工程一份，与源工程约定一致）：
-
-- `{base-package}.constants.ApiConstants` — 提供 `NAME`（Feign 服务名）与 `PREFIX`（API 路径前缀），用于 `@FeignClient` 与各端点的 `PREFIX`。
-- `{base-package}.model.dto.req.PageQueryReqDto` — 非表相关的通用分页请求 DTO（仅含 current/size），是 `pageAll` 端点的入参。注意：各表生成的 `XxxPageQueryReqDto` 继承自该表的 `XxxQueryReqDto`，与这个通用基类是两回事。
-
-未预置上述类时，`api`/`api-impl` 层产物无法编译（这是与源工程一致的既有契约）。
+生成的全部 14 层代码**不依赖任何目标工程预置类**：`@FeignClient` 服务名与 API 基础路径由配置 `api:` 节内联进产物；`pageAll` 端点直接以 `current`/`size` 两个查询参数收参。拿到产物即可编译（中央组件依赖除外，见 pom 依赖说明）。
