@@ -31,3 +31,34 @@ checksum:
 
 release:
   draft: false
+
+homebrew_casks:
+  - name: base-code
+    repository:
+      owner: dhslegen
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/dhslegen/base-code"
+    description: "数据库代码生成器 CLI"
+    # 未签名二进制：装后清除 macOS quarantine 属性，否则 Gatekeeper 拦截首次运行
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/base-code"]
+          end
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+
+scoops:
+  - repository:
+      owner: dhslegen
+      name: scoop-bucket
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/dhslegen/base-code"
+    description: "数据库代码生成器 CLI"
+    license: "MIT"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
