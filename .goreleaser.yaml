@@ -56,6 +56,7 @@ scoops:
       owner: dhslegen
       name: scoop-bucket
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: bucket
     homepage: "https://github.com/dhslegen/base-code"
     description: "数据库代码生成器 CLI"
     license: "MIT"
