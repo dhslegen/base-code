@@ -22,6 +22,10 @@ type TemplateData struct {
 	TableName string
 	// BasePackage Java 基础包名，如 com.dahaoshen.demo。
 	BasePackage string
+	// ServiceName Feign 服务名（注册中心应用名），填入 @FeignClient(name=...)。来自 config api.service-name。
+	ServiceName string
+	// BasePath 所有 API 端点的基础路径前缀，如 /admin-api/hello。来自 config api.base-path。
+	BasePath string
 	// ModelUpperCamel 大驼峰实体类名，如 SysUser。
 	ModelUpperCamel string
 	// ModelCamel 小驼峰变量名，如 sysUser。

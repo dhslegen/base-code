@@ -193,6 +193,8 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 		Since:       since, // 由 SetSince 注入；测试中为 ""，不影响编译/渲染
 		TableName:   meta.TableName,
 		BasePackage: cfg.BasePackage,
+		ServiceName: cfg.Api.ServiceName,
+		BasePath:    cfg.Api.BasePath,
 
 		ModelUpperCamel: modelUpper,
 		ModelCamel:      naming.Camel(meta.TableName),               // sys_user → sysUser

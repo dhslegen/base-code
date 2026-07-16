@@ -313,3 +313,28 @@ func TestSelectLayers(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildTemplateData_ApiFields 验证 config 的 api 字段透传进模板上下文。
+func TestBuildTemplateData_ApiFields(t *testing.T) {
+	meta := model.TableMetadata{
+		TableName: "sys_user",
+		Columns: []model.ColumnMetadata{
+			{ColumnName: "id", ColumnType: "bigint", IsPrimaryKey: true},
+		},
+	}
+	cfg := config.Config{
+		BasePackage: "com.example.hello",
+		Datasource:  config.Datasource{Dialect: "mysql"},
+		Api:         config.Api{ServiceName: "hello-service", BasePath: "/admin-api/hello"},
+	}
+	data, err := BuildTemplateData(meta, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data.ServiceName != "hello-service" {
+		t.Errorf("ServiceName = %q", data.ServiceName)
+	}
+	if data.BasePath != "/admin-api/hello" {
+		t.Errorf("BasePath = %q", data.BasePath)
+	}
+}
