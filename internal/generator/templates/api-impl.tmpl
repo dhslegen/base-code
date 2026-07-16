@@ -93,8 +93,8 @@ public class {{.ModelUpperCamel}}ApiImpl implements {{.ModelUpperCamel}}Api {
     }
 
     @Override
-    public Result<Page<{{.ModelUpperCamel}}RespDto>> pageAll(PageQueryReqDto pageQueryReqDto) {
-        Page<{{.ModelUpperCamel}}> page = {{.ModelCamel}}Service.pageAll(pageQueryReqDto.getCurrent(), pageQueryReqDto.getSize());
+    public Result<Page<{{.ModelUpperCamel}}RespDto>> pageAll(Long current, Long size) {
+        Page<{{.ModelUpperCamel}}> page = {{.ModelCamel}}Service.pageAll(current, size);
         Page<{{.ModelUpperCamel}}RespDto> respPage = (Page<{{.ModelUpperCamel}}RespDto>) page.convert({{.ModelUpperCamel}}Converter.INSTANCE::toRespDto);
         return Result.ok(respPage);
     }

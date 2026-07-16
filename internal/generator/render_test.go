@@ -16,6 +16,7 @@ func sampleData() TemplateData {
 	return TemplateData{
 		Author: "zhaowenhao", Since: "2026-06-23",
 		TableName: "sys_user", BasePackage: "com.dahaoshen.demo",
+		ServiceName: "demo-svc", BasePath: "/admin-api/demo",
 		ModelUpperCamel: "SysUser", ModelCamel: "sysUser", ModelKebab: "sys-user",
 		ModelComment: "系统用户", PkFieldUpperCamel: "Id", IdType: "Long",
 		UseJakarta: true, IsWithAutoFill: false,
@@ -291,7 +292,10 @@ func TestRender_Api_PrunedIdempotency(t *testing.T) {
 	for _, want := range []string{
 		"import com.dahaoshen.restcore.Result;",
 		"public interface SysUserApi {",
-		"@FeignClient(name = ApiConstants.NAME)",
+		`@FeignClient(name = "demo-svc")`,
+		`String PREFIX = "/admin-api/demo/sys-user";`,
+		`@GetMapping(PREFIX + "/page-all")`,
+		`@RequestParam(value = "current", defaultValue = "1") Long current`,
 		`@PostMapping(PREFIX + "/create")`,
 		"Result<SysUserRespDto> create(",
 		"Result<Boolean> existsByQuery(",
@@ -300,7 +304,7 @@ func TestRender_Api_PrunedIdempotency(t *testing.T) {
 			t.Errorf("api 缺少 %q:\n%s", want, out)
 		}
 	}
-	for _, banned := range []string{"createIdempotency", "updateByIdIdempotency", "saveOrUpdateIdempotency", "LockConditionReqDto"} {
+	for _, banned := range []string{"createIdempotency", "updateByIdIdempotency", "saveOrUpdateIdempotency", "LockConditionReqDto", "ApiConstants", "RequestBody PageQueryReqDto"} {
 		if strings.Contains(out, banned) {
 			t.Errorf("api 不应出现已裁剪的 %q", banned)
 		}
@@ -332,5 +336,24 @@ func TestRender_ApiImpl_PrunedAndReconciled(t *testing.T) {
 		if strings.Contains(out, banned) {
 			t.Errorf("api-impl 不应出现 %q", banned)
 		}
+	}
+}
+
+// TestRender_ApiImpl_PageAllInlined 验证 api-impl 的 pageAll 为双参数签名、直调 service。
+func TestRender_ApiImpl_PageAllInlined(t *testing.T) {
+	out, err := Render("api-impl", sampleData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"public Result<Page<SysUserRespDto>> pageAll(Long current, Long size) {",
+		"sysUserService.pageAll(current, size);",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("api-impl 缺少 %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "pageAll(PageQueryReqDto") {
+		t.Error("api-impl 不应再引用裸 PageQueryReqDto")
 	}
 }
