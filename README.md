@@ -1,5 +1,10 @@
 # base-code
 
+[![Release](https://img.shields.io/github/v/release/dhslegen/base-code?sort=semver&color=brightgreen)](https://github.com/dhslegen/base-code/releases)
+[![License](https://img.shields.io/github/license/dhslegen/base-code?color=blue)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/dhslegen/base-code)](go.mod)
+![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
+
 数据库代码生成器（Go 版）。连接 MySQL / PostgreSQL，扫描表结构，按约定生成 MyBatis-Plus 分层 Java 代码（全 14 层）。
 
 > 想深入了解每一站的实现原理？阅读 [docs/TUTORIAL.md](docs/TUTORIAL.md)（全流水线教学，含 Java 对照与 Go 小白知识点）。
