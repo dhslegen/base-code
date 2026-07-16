@@ -8,16 +8,36 @@
 
 ## 安装
 
-### 方式一：go install（推荐，需 Go 1.21+）
+### 方式一：Homebrew（macOS / Linux，推荐）
+
+```bash
+brew install dhslegen/tap/base-code
+```
+
+安装后 `base-code` 直接可用（Homebrew 自动纳入 PATH）。
+
+### 方式二：Scoop（Windows）
+
+```powershell
+scoop bucket add dhslegen https://github.com/dhslegen/scoop-bucket
+scoop install base-code
+```
+
+### 方式三：go install（需 Go 1.21+）
 
 ```bash
 go install github.com/dhslegen/base-code@latest
 ```
 
 > 安装后二进制名即 `base-code`，与 `--help` 命令名、发行包名完全一致。
-> 私有仓库需先设 `export GOPRIVATE=github.com/dhslegen` 并配置好 git 认证。
+>
+> **`command not found: base-code`？** `go install` 把二进制放在 `$(go env GOPATH)/bin`（默认 `~/go/bin`），需确保它在 PATH：
+> ```bash
+> echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+> ```
+> 用 Homebrew / Scoop 安装则无此问题。
 
-### 方式二：本地构建
+### 方式四：本地构建
 
 ```bash
 git clone https://github.com/dhslegen/base-code.git
