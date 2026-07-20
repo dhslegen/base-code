@@ -55,20 +55,20 @@ type LayerSpec struct {
 // 整个程序生命周期内共享同一份 map。约定上只读；但它是导出的包级 map，
 // 语言层面 importer 仍可改写——约定不可变即可，无需额外防护。
 var Layers = map[string]LayerSpec{
-	"po":           {PkgSuffix: "model.po", NameSuffix: "", Ext: ".java"},           // 实体类，文件名无后缀（如 SysUser.java）
-	"mapper":       {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".java"},        // MyBatis-Plus Mapper 接口
-	"service":      {PkgSuffix: "service", NameSuffix: "Service", Ext: ".java"},      // Service 接口
-	"service-impl": {PkgSuffix: "service.impl", NameSuffix: "ServiceImpl", Ext: ".java"}, // Service 实现类
-	"query":        {PkgSuffix: "model.query", NameSuffix: "Query", Ext: ".java"},    // 分页/条件查询对象
-	"converter":    {PkgSuffix: "converter", NameSuffix: "Converter", Ext: ".java"},  // DTO ↔ PO 转换器
-	"mapper-xml":   {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".xml", Resource: true}, // MyBatis XML，落 resources/mapper/
-	"req-dto":                 {PkgSuffix: "model.dto.req", NameSuffix: "ReqDto", Ext: ".java"},                 // 请求 DTO
-	"resp-dto":                {PkgSuffix: "model.dto.resp", NameSuffix: "RespDto", Ext: ".java"},               // 响应 DTO
-	"query-req-dto":           {PkgSuffix: "model.dto.req", NameSuffix: "QueryReqDto", Ext: ".java"},           // 查询请求 DTO
-	"page-query-req-dto":      {PkgSuffix: "model.dto.req", NameSuffix: "PageQueryReqDto", Ext: ".java"},      // 分页查询请求 DTO
+	"po":                      {PkgSuffix: "model.po", NameSuffix: "", Ext: ".java"},                         // 实体类，文件名无后缀（如 SysUser.java）
+	"mapper":                  {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".java"},                     // MyBatis-Plus Mapper 接口
+	"service":                 {PkgSuffix: "service", NameSuffix: "Service", Ext: ".java"},                   // Service 接口
+	"service-impl":            {PkgSuffix: "service.impl", NameSuffix: "ServiceImpl", Ext: ".java"},          // Service 实现类
+	"query":                   {PkgSuffix: "model.query", NameSuffix: "Query", Ext: ".java"},                 // 分页/条件查询对象
+	"converter":               {PkgSuffix: "converter", NameSuffix: "Converter", Ext: ".java"},               // DTO ↔ PO 转换器
+	"mapper-xml":              {PkgSuffix: "mapper", NameSuffix: "Mapper", Ext: ".xml", Resource: true},      // MyBatis XML，落 resources/mapper/
+	"req-dto":                 {PkgSuffix: "model.dto.req", NameSuffix: "ReqDto", Ext: ".java"},              // 请求 DTO
+	"resp-dto":                {PkgSuffix: "model.dto.resp", NameSuffix: "RespDto", Ext: ".java"},            // 响应 DTO
+	"query-req-dto":           {PkgSuffix: "model.dto.req", NameSuffix: "QueryReqDto", Ext: ".java"},         // 查询请求 DTO
+	"page-query-req-dto":      {PkgSuffix: "model.dto.req", NameSuffix: "PageQueryReqDto", Ext: ".java"},     // 分页查询请求 DTO
 	"update-by-query-req-dto": {PkgSuffix: "model.dto.req", NameSuffix: "UpdateByQueryReqDto", Ext: ".java"}, // 按条件更新请求 DTO
-	"api":                      {PkgSuffix: "api", NameSuffix: "Api", Ext: ".java"},  // Feign RPC 接口
-	"api-impl":                 {PkgSuffix: "api.impl", NameSuffix: "ApiImpl", Ext: ".java"}, // Feign RPC 实现
+	"api":                     {PkgSuffix: "api", NameSuffix: "Api", Ext: ".java"},                           // Feign RPC 接口
+	"api-impl":                {PkgSuffix: "api.impl", NameSuffix: "ApiImpl", Ext: ".java"},                  // Feign RPC 实现
 }
 
 // ResolveResourcesRoot 由 java 源根派生 resources 根：把末段 src/main/java 换成 src/main/resources。

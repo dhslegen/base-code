@@ -4,9 +4,9 @@
 // # 为什么用三段查询而不是一段？
 //
 // PostgreSQL 把"列信息"、"约束信息"、"对象注释"存在不同的系统表/视图里：
-//  - information_schema.columns：列的基础属性（类型、可空、默认值等）
-//  - information_schema.table_constraints + key_column_usage：约束（PRIMARY KEY/UNIQUE 等）
-//  - pg_class + obj_description：表/对象级别注释
+//   - information_schema.columns：列的基础属性（类型、可空、默认值等）
+//   - information_schema.table_constraints + key_column_usage：约束（PRIMARY KEY/UNIQUE 等）
+//   - pg_class + obj_description：表/对象级别注释
 //
 // 三段查询能各自独立失败/重试，逻辑更清晰。
 //
@@ -37,7 +37,7 @@ func NewPostgreSQL(db *sql.DB) TableScanner { return postgreSQLScanner{db: db} }
 // 使用 information_schema.columns（标准 SQL 视图，跨数据库兼容），
 // 同时 LEFT JOIN pg_class/pg_attribute 获取 PostgreSQL 特有的列注释。
 //
-// COALESCE(expr, '') 等价于 Java 的 Objects.toString(x, "")，把 NULL 换成空串。
+// COALESCE(expr, ”) 等价于 Java 的 Objects.toString(x, "")，把 NULL 换成空串。
 // col_description(oid, attnum) 是 PG 内置函数，按 (表oid, 列序号) 返回列注释。
 //
 // pg_class JOIN 上的 relkind = 'r' 不可省：pg_class 是 PG 的"万物表"（表/视图/索引/序列同居一表），

@@ -21,7 +21,7 @@ func TestCamel(t *testing.T) {
 func TestUpperCamel(t *testing.T) {
 	cases := map[string]string{
 		"user_role": "UserRole",
-		"id":         "Id",
+		"id":        "Id",
 	}
 	for in, want := range cases {
 		if got := UpperCamel(in); got != want {
@@ -33,7 +33,7 @@ func TestUpperCamel(t *testing.T) {
 func TestKebab(t *testing.T) {
 	cases := map[string]string{
 		"UserRole": "user-role",
-		"Id":        "id",
+		"Id":       "id",
 	}
 	for in, want := range cases {
 		if got := Kebab(in); got != want {
@@ -45,7 +45,7 @@ func TestKebab(t *testing.T) {
 func TestCapitalize(t *testing.T) {
 	cases := map[string]string{
 		"userName": "UserName",
-		"":          "", // 空串 guard
+		"":         "", // 空串 guard
 	}
 	for in, want := range cases {
 		if got := Capitalize(in); got != want {

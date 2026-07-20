@@ -23,7 +23,7 @@ var pgJavaBase = map[string]string{
 	"numeric": "java.math.BigDecimal", "decimal": "java.math.BigDecimal", "money": "java.math.BigDecimal",
 	"bool": "Boolean", "boolean": "Boolean",
 	"bytea": "byte[]",
-	"json": "String", "jsonb": "String", "array": "String[]",
+	"json":  "String", "jsonb": "String", "array": "String[]",
 	"point": "String", "line": "String", "lseg": "String", "box": "String", "path": "String", "polygon": "String", "circle": "String",
 	"cidr": "String", "inet": "String", "macaddr": "String",
 	"bit": "String", "varbit": "String",

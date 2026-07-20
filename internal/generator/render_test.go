@@ -189,7 +189,7 @@ func TestRender_MapperXml(t *testing.T) {
 	}
 	for _, want := range []string{
 		`namespace="com.dahaoshen.demo.mapper.SysUserMapper"`,
-		`<id column="id" jdbcType="BIGINT" property="id"/>`,   // 主键用 <id>
+		`<id column="id" jdbcType="BIGINT" property="id"/>`,          // 主键用 <id>
 		`<result column="name" jdbcType="VARCHAR" property="name"/>`, // 非主键用 <result>
 	} {
 		if !strings.Contains(out, want) {

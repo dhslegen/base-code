@@ -49,11 +49,11 @@ func TestMySQL_JdbcType(t *testing.T) {
 		"varchar":      "VARCHAR",
 		"bigint":       "BIGINT",
 		"datetime":     "TIMESTAMP",
-		"VARCHAR(255)": "VARCHAR",  // 带长度也能识别（normalize 截断）
-		"INT UNSIGNED": "INTEGER",  // 带修饰也能识别
-		"unknown":      "VARCHAR",  // 兜底
-		"blob":         "BLOB",     // blob 系列映射 BLOB（对齐 Java MySqlTypeMapper）
-		"real":         "REAL",     // real → REAL（对齐 Java MySqlTypeMapper）
+		"VARCHAR(255)": "VARCHAR", // 带长度也能识别（normalize 截断）
+		"INT UNSIGNED": "INTEGER", // 带修饰也能识别
+		"unknown":      "VARCHAR", // 兜底
+		"blob":         "BLOB",    // blob 系列映射 BLOB（对齐 Java MySqlTypeMapper）
+		"real":         "REAL",    // real → REAL（对齐 Java MySqlTypeMapper）
 	}
 	for in, want := range cases {
 		if got := m.MapToJdbcType(in); got != want {

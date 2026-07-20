@@ -34,7 +34,7 @@ var javaBase = map[string]string{
 var jdbcTypes = map[string]string{
 	"varchar": "VARCHAR", "text": "LONGVARCHAR", "char": "CHAR",
 	"int": "INTEGER", "integer": "INTEGER", "tinyint": "TINYINT", "smallint": "SMALLINT",
-	"bigint": "BIGINT",
+	"bigint":  "BIGINT",
 	"decimal": "DECIMAL", "numeric": "NUMERIC",
 	"datetime": "TIMESTAMP", "timestamp": "TIMESTAMP",
 	"date": "DATE", "time": "TIME",
@@ -94,6 +94,7 @@ func (mySQLTypeMapper) MapToJdbcType(dbType string) string {
 //   - "VARCHAR(255)" -> "varchar"
 //   - "INT UNSIGNED" -> "int"
 //   - "  BigInt  " -> "bigint"
+//
 // 实现机制：先小写+修剪，再在第一个「(」或「 」处截断。
 func normalize(dbType string) string {
 	s := strings.ToLower(strings.TrimSpace(dbType))
