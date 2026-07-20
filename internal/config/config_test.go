@@ -111,9 +111,9 @@ func TestLoad_ApiExplicit(t *testing.T) {
 
 // strPtr / intPtr / boolPtr / colsPtr 是测试用的取址辅助。
 // Go 小白知识点：Go 不能对字面量直接取址（&"x" 非法），需借助辅助函数或局部变量。
-func strPtr(s string) *string      { return &s }
-func intPtr(i int) *int            { return &i }
-func boolPtr(b bool) *bool         { return &b }
+func strPtr(s string) *string       { return &s }
+func intPtr(i int) *int             { return &i }
+func boolPtr(b bool) *bool          { return &b }
 func colsPtr(c ...string) *[]string { return &c }
 
 // fullOverrides 返回一份可通过必填校验的最小完整内联配置。
@@ -156,9 +156,9 @@ func TestLoadWithOverrides_ExplicitConfigMissing(t *testing.T) {
 // TestLoadWithOverrides_FlagOverridesFile 验证 flag 逐项覆盖文件值（含 bool 显式 false）。
 func TestLoadWithOverrides_FlagOverridesFile(t *testing.T) {
 	cfg, err := LoadWithOverrides("../../testdata/base-code.yaml", true, Overrides{
-		UseJakarta: boolPtr(false),
-		DbHost:     strPtr("db.prod"),
-		DbPort:     intPtr(3307),
+		UseJakarta:     boolPtr(false),
+		DbHost:         strPtr("db.prod"),
+		DbPort:         intPtr(3307),
 		AutoFillInsert: colsPtr("created_at"),
 	})
 	if err != nil {
@@ -204,5 +204,18 @@ func TestLoadWithOverrides_MissingRequiredHint(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息应含 %q，实际: %v", want, err)
 		}
+	}
+}
+
+// TestLoadWithOverrides_ExplicitZeroPortKept 验证显式 --db-port 0 不被方言派生覆盖（指针语义承诺）。
+func TestLoadWithOverrides_ExplicitZeroPortKept(t *testing.T) {
+	ov := fullOverrides()
+	ov.DbPort = intPtr(0)
+	cfg, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, ov)
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.Datasource.Port != 0 {
+		t.Errorf("显式 --db-port 0 应保留，得到 %d", cfg.Datasource.Port)
 	}
 }

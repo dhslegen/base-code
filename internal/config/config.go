@@ -97,6 +97,10 @@ func LoadWithOverrides(path string, requireFile bool, ov Overrides) (Config, err
 	}
 	applyOverrides(&cfg, ov)
 	applyDefaults(&cfg)
+	// 显式 flag 的端口永不被方言派生覆盖——含显式 0（兑现 Overrides 注释的「显式传零值」承诺）。
+	if ov.DbPort != nil {
+		cfg.Datasource.Port = *ov.DbPort
+	}
 	if err := validate(cfg); err != nil {
 		return Config{}, err
 	}
