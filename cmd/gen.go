@@ -34,6 +34,25 @@ var (
 	flagDryRun          bool   // --dry-run：只打印到终端，不落盘
 	flagOnlyTableModify bool   // --only-table-modify：仅生成改表影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
 	flagWithoutApi      bool   // --without-api：不生成 API 相关层，保留后端内部层（service/service-impl/po/query/mapper/mapper-xml）
+
+	// 内联配置 flag：所有 yaml 配置项的命令行等价物（agent 可一行构造完整命令）。
+	// 注意：是否「显式提供」由 Flags().Changed 判定，这些变量的零值不承担缺省语义——
+	// 缺省统一由 config.applyDefaults 补齐（优先级：flag > 配置文件 > 约定默认值）。
+	flagBasePackage    string
+	flagOutputRoot     string
+	flagResourcesRoot  string
+	flagAuthor         string
+	flagUseJakarta     bool
+	flagDateType       string
+	flagDbHost         string
+	flagDbPort         int
+	flagDbUser         string
+	flagDbPassword     string
+	flagDbName         string
+	flagServiceName    string
+	flagBasePath       string
+	flagAutoFillInsert string
+	flagAutoFillUpdate string
 )
 
 // genCmd 是 `base-code gen` 子命令。
@@ -47,14 +66,67 @@ var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "生成代码",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// 1. 加载配置文件
-		cfg, err := config.Load(flagConfig)
+		// 1. 装配命令行内联覆盖（仅收集用户显式提供的 flag）。
+		// Go 小白知识点：fs.Changed(name) 报告该 flag 是否在命令行出现过——
+		// 这与「值 == 零值」不同：--use-jakarta=false / --db-port 0 也算显式提供。
+		fs := cmd.Flags()
+		ov := config.Overrides{}
+		if fs.Changed("base-package") {
+			ov.BasePackage = &flagBasePackage
+		}
+		if fs.Changed("output-root") {
+			ov.OutputRoot = &flagOutputRoot
+		}
+		if fs.Changed("resources-root") {
+			ov.ResourcesRoot = &flagResourcesRoot
+		}
+		if fs.Changed("author") {
+			ov.Author = &flagAuthor
+		}
+		if fs.Changed("use-jakarta") {
+			ov.UseJakarta = &flagUseJakarta
+		}
+		if fs.Changed("date-type") {
+			ov.DateType = &flagDateType
+		}
+		if fs.Changed("dialect") {
+			ov.Dialect = &flagDialect
+		}
+		if fs.Changed("db-host") {
+			ov.DbHost = &flagDbHost
+		}
+		if fs.Changed("db-port") {
+			ov.DbPort = &flagDbPort
+		}
+		if fs.Changed("db-user") {
+			ov.DbUser = &flagDbUser
+		}
+		if fs.Changed("db-password") {
+			ov.DbPassword = &flagDbPassword
+		}
+		if fs.Changed("db-name") {
+			ov.DbName = &flagDbName
+		}
+		if fs.Changed("service-name") {
+			ov.ServiceName = &flagServiceName
+		}
+		if fs.Changed("base-path") {
+			ov.BasePath = &flagBasePath
+		}
+		if fs.Changed("auto-fill-insert") {
+			cols := splitCSV(flagAutoFillInsert)
+			ov.AutoFillInsert = &cols
+		}
+		if fs.Changed("auto-fill-update") {
+			cols := splitCSV(flagAutoFillUpdate)
+			ov.AutoFillUpdate = &cols
+		}
+
+		// 2. 加载配置并叠加覆盖。requireFile 语义：用户显式 --config → 文件必须存在；
+		// 未显式 → 默认文件缺席时进入纯 flag 模式。
+		cfg, err := config.LoadWithOverrides(flagConfig, fs.Changed("config"), ov)
 		if err != nil {
 			return err
-		}
-		// 2. --dialect flag 覆盖配置文件中的方言（让 CI 流水线可以通过 flag 切换数据库）
-		if flagDialect != "" {
-			cfg.Datasource.Dialect = flagDialect
 		}
 		// 3. 注入当前日期到 generator，用于生成文件的 @since 注释
 		// Go 小白知识点（重点）：Go 的日期格式使用「参考时间」而非占位符：
@@ -94,7 +166,7 @@ var genCmd = &cobra.Command{
 		// 两个 flag 默认均为 false，此时 SelectLayers(false,false) 返回全 14 层，
 		// 完全替代原来硬编码的 7 层切片，保持向后兼容同时支持新过滤模式。
 		layers := generator.SelectLayers(flagOnlyTableModify, flagWithoutApi)
-		for _, t := range splitTables(flagTables) {
+		for _, t := range splitCSV(flagTables) {
 			meta, err := sc.ScanTable(t)
 			if err != nil {
 				return err
@@ -117,6 +189,23 @@ func init() {
 	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印不落盘")
 	genCmd.Flags().BoolVar(&flagOnlyTableModify, "only-table-modify", false, "仅生成改表影响的层")
 	genCmd.Flags().BoolVar(&flagWithoutApi, "without-api", false, "不生成 API 相关层")
+
+	// 内联配置 flag（与 base-code.yaml 各键一一对应；提供后覆盖文件值）
+	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（内联，覆盖配置文件）")
+	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（内联）")
+	genCmd.Flags().StringVar(&flagResourcesRoot, "resources-root", "", "mapper-xml 输出根目录（内联，缺省由 output-root 推导）")
+	genCmd.Flags().StringVar(&flagAuthor, "author", "", "代码 @author（内联，缺省读 git config user.name）")
+	genCmd.Flags().BoolVar(&flagUseJakarta, "use-jakarta", true, "true=jakarta 包（Spring Boot 3+），false=javax 包（内联）")
+	genCmd.Flags().StringVar(&flagDateType, "date-type", "", "modern=java.time.*，legacy=java.util.Date（内联）")
+	genCmd.Flags().StringVar(&flagDbHost, "db-host", "", "数据库主机（内联）")
+	genCmd.Flags().IntVar(&flagDbPort, "db-port", 0, "数据库端口（内联，缺省按方言 3306/5432）")
+	genCmd.Flags().StringVar(&flagDbUser, "db-user", "", "数据库用户名（内联）")
+	genCmd.Flags().StringVar(&flagDbPassword, "db-password", "", "数据库密码（内联）")
+	genCmd.Flags().StringVar(&flagDbName, "db-name", "", "数据库名（内联）")
+	genCmd.Flags().StringVar(&flagServiceName, "service-name", "", "@FeignClient 服务名（内联，缺省 base-package 末段）")
+	genCmd.Flags().StringVar(&flagBasePath, "base-path", "", "API 基础路径前缀（内联，缺省 /+base-package 末段）")
+	genCmd.Flags().StringVar(&flagAutoFillInsert, "auto-fill-insert", "", "插入自动填充列，逗号分隔（内联）")
+	genCmd.Flags().StringVar(&flagAutoFillUpdate, "auto-fill-update", "", "更新自动填充列，逗号分隔（内联）")
 
 	// MarkFlagRequired 标记 --tables 为必填。
 	// 若用户未提供 --tables，cobra 在 RunE 调用前就打印错误并退出（不进入 RunE）。
@@ -148,14 +237,14 @@ func dbDriverAndDSN(d dialect.SqlDialect, cfg config.Config) (string, string) {
 	}
 }
 
-// splitTables 将逗号分隔的表名字符串拆分为切片，并过滤空白项。
+// splitCSV 将逗号分隔字符串拆分为切片，并过滤空白项（表名、自动填充列清单共用）。
 //
 // 例：" sys_user , sys_role " → ["sys_user", "sys_role"]
 //
 // Go 小白知识点：
 //   - strings.Split 不会自动去掉空白，需配合 strings.TrimSpace。
 //   - var out []string 声明 nil 切片；append 到 nil 切片合法（Go 自动分配底层数组）。
-func splitTables(s string) []string {
+func splitCSV(s string) []string {
 	var out []string
 	for _, t := range strings.Split(s, ",") {
 		if t = strings.TrimSpace(t); t != "" {
