@@ -40,6 +40,14 @@ homebrew_casks:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/dhslegen/base-code"
     description: "数据库代码生成器 CLI"
+    # brew 安装时运行 `base-code completion <shell>` 生成补全并装入 brew 标准 fpath 目录
+    # 注意：cobra 格式已自动追加 `completion <shell>` 参数，不可再配 args（否则重复）
+    generate_completions_from_executable:
+      shell_parameter_format: cobra
+      shells:
+        - bash
+        - zsh
+        - fish
     # 未签名二进制：装后清除 macOS quarantine 属性，否则 Gatekeeper 拦截首次运行
     hooks:
       post:

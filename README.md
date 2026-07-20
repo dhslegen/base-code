@@ -136,11 +136,19 @@ base-code gen --config base-code.yaml --tables sys_user --dialect postgresql
 
 ## Shell 补全
 
-cobra 内置 `completion` 子命令，支持 bash / zsh / fish / PowerShell。
+**Homebrew 安装（v0.2.1+）自动装好 bash / zsh / fish 补全，无需任何操作。**
+
+其他安装方式（go install / 本地构建）可用内置 `completion` 子命令手动生成，写入一个**确定在 `$fpath` 中**的目录（不要用 `${fpath[1]}`，其指向因环境而异）：
 
 ```bash
-# zsh
-base-code completion zsh > "${fpath[1]}/_base-code"
+# zsh：Homebrew 环境的标准补全目录
+base-code completion zsh > "$(brew --prefix)/share/zsh/site-functions/_base-code"
+
+# zsh：oh-my-zsh 用户也可直接放 custom/completions（天然在 fpath 中）
+base-code completion zsh > ~/.oh-my-zsh/custom/completions/_base-code
+
+# 写入后重建补全缓存
+rm -f ~/.zcompdump*; exec zsh
 
 # bash
 base-code completion bash > /etc/bash_completion.d/base-code
@@ -148,6 +156,9 @@ base-code completion bash > /etc/bash_completion.d/base-code
 # fish
 base-code completion fish > ~/.config/fish/completions/base-code.fish
 ```
+
+> zsh 提示：`$(brew --prefix)/share/zsh/site-functions` 需在 `compinit` 之前进入 `FPATH` 才生效。若补全不工作，在 `~/.zshrc` 里 **source oh-my-zsh（或调用 compinit）之前**加入：
+> `FPATH="$(brew --prefix)/share/zsh/site-functions:$FPATH"`
 
 ---
 
