@@ -54,22 +54,140 @@ type root struct {
 	BaseCode Config `yaml:"base-code"`
 }
 
-// Load 读取并解析配置文件，随后补齐约定默认值。
-func Load(path string) (Config, error) {
+// Overrides 表示命令行内联配置对文件配置的逐项覆盖。
+// Go 小白知识点：全指针字段——nil 表示「命令行未提供该项」，与零值（""、0、false）区分开，
+// 这样 --use-jakarta=false、--db-port 0 这类「显式传零值」也能正确表达。
+type Overrides struct {
+	BasePackage    *string
+	OutputRoot     *string
+	ResourcesRoot  *string
+	Author         *string
+	UseJakarta     *bool
+	DateType       *string
+	Dialect        *string
+	DbHost         *string
+	DbPort         *int
+	DbUser         *string
+	DbPassword     *string
+	DbName         *string
+	ServiceName    *string
+	BasePath       *string
+	AutoFillInsert *[]string
+	AutoFillUpdate *[]string
+}
+
+// LoadWithOverrides 加载配置并叠加命令行内联覆盖。
+// requireFile=false 时文件不存在不视为错误（纯 flag 模式，agent 一行直达）；
+// true 时文件必须存在（用户显式 --config，不静默忽略）。
+// 优先级：显式 flag > 配置文件 > 约定默认值。
+func LoadWithOverrides(path string, requireFile bool, ov Overrides) (Config, error) {
+	var cfg Config
 	data, err := os.ReadFile(path)
-	if err != nil {
+	switch {
+	case err == nil:
+		var r root
+		if err := yaml.Unmarshal(data, &r); err != nil {
+			return Config{}, fmt.Errorf("解析配置 %s 失败: %w", path, err)
+		}
+		cfg = r.BaseCode
+	case os.IsNotExist(err) && !requireFile:
+		// 纯 flag 模式：默认配置文件缺席是合法状态，从零配置起步
+	default:
 		return Config{}, fmt.Errorf("读取配置 %s 失败: %w", path, err)
 	}
-	var r root
-	if err := yaml.Unmarshal(data, &r); err != nil {
-		return Config{}, fmt.Errorf("解析配置 %s 失败: %w", path, err)
-	}
-	cfg := r.BaseCode
+	applyOverrides(&cfg, ov)
 	applyDefaults(&cfg)
-	if cfg.BasePackage == "" {
-		return Config{}, fmt.Errorf("base-package 为必填项")
+	if err := validate(cfg); err != nil {
+		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// Load 读取并解析配置文件，随后补齐约定默认值。
+// LoadWithOverrides 的薄封装：必须有文件、无内联覆盖，保持既有调用方兼容。
+func Load(path string) (Config, error) {
+	return LoadWithOverrides(path, true, Overrides{})
+}
+
+// applyOverrides 将命令行显式提供的内联配置逐项覆盖到 cfg（nil 跳过）。
+func applyOverrides(c *Config, ov Overrides) {
+	if ov.BasePackage != nil {
+		c.BasePackage = *ov.BasePackage
+	}
+	if ov.OutputRoot != nil {
+		c.OutputRoot = *ov.OutputRoot
+	}
+	if ov.ResourcesRoot != nil {
+		c.ResourcesRoot = *ov.ResourcesRoot
+	}
+	if ov.Author != nil {
+		c.Author = *ov.Author
+	}
+	if ov.UseJakarta != nil {
+		c.UseJakarta = ov.UseJakarta
+	}
+	if ov.DateType != nil {
+		c.DateType = *ov.DateType
+	}
+	if ov.Dialect != nil {
+		c.Datasource.Dialect = *ov.Dialect
+	}
+	if ov.DbHost != nil {
+		c.Datasource.Host = *ov.DbHost
+	}
+	if ov.DbPort != nil {
+		c.Datasource.Port = *ov.DbPort
+	}
+	if ov.DbUser != nil {
+		c.Datasource.Username = *ov.DbUser
+	}
+	if ov.DbPassword != nil {
+		c.Datasource.Password = *ov.DbPassword
+	}
+	if ov.DbName != nil {
+		c.Datasource.Database = *ov.DbName
+	}
+	if ov.ServiceName != nil {
+		c.Api.ServiceName = *ov.ServiceName
+	}
+	if ov.BasePath != nil {
+		c.Api.BasePath = *ov.BasePath
+	}
+	if ov.AutoFillInsert != nil {
+		c.AutoFill.InsertColumns = *ov.AutoFillInsert
+	}
+	if ov.AutoFillUpdate != nil {
+		c.AutoFill.UpdateColumns = *ov.AutoFillUpdate
+	}
+}
+
+// validate 校验必填项。错误信息面向 agent 自修复：列出缺失 flag 并给出可复制的完整命令样例。
+func validate(c Config) error {
+	var missing []string
+	if c.BasePackage == "" {
+		missing = append(missing, "--base-package")
+	}
+	if c.OutputRoot == "" {
+		missing = append(missing, "--output-root")
+	}
+	if c.Datasource.Host == "" {
+		missing = append(missing, "--db-host")
+	}
+	if c.Datasource.Username == "" {
+		missing = append(missing, "--db-user")
+	}
+	if c.Datasource.Database == "" {
+		missing = append(missing, "--db-name")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf(`缺少必填配置：%s
+可写入配置文件（--config），或用内联 flag 一行直达，例如：
+  base-code gen --tables sys_user \
+    --base-package com.example.demo --output-root ./src/main/java \
+    --dialect mysql --db-host 127.0.0.1 --db-user root --db-password '***' --db-name demo`,
+		strings.Join(missing, "、"))
 }
 
 // applyDefaults 填充约定缺省值（指针接收者以便修改入参）。
@@ -102,5 +220,13 @@ func applyDefaults(c *Config) {
 	}
 	if c.Api.BasePath == "" {
 		c.Api.BasePath = "/" + seg
+	}
+	// 端口缺省按方言派生：mysql→3306，postgresql→5432（内联模式 agent 可少传一项）。
+	if c.Datasource.Port == 0 {
+		if c.Datasource.Dialect == "postgresql" {
+			c.Datasource.Port = 5432
+		} else {
+			c.Datasource.Port = 3306
+		}
 	}
 }
