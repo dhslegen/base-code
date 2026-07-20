@@ -220,12 +220,10 @@ func init() {
 	genCmd.Flags().StringVar(&flagAutoFillInsert, "auto-fill-insert", "", "插入自动填充列，逗号分隔（默认: created_at,updated_at,created_by,updated_by）")
 	genCmd.Flags().StringVar(&flagAutoFillUpdate, "auto-fill-update", "", "更新自动填充列，逗号分隔（默认: updated_at,updated_by）")
 
-	// MarkFlagRequired 标记 --tables 与 --base-package、--db-name 为必填。
-	// 若用户未提供这些 flag，cobra 在 RunE 调用前就打印错误并退出（不进入 RunE）。
+	// MarkFlagRequired 标记 --tables 为 cobra 必填（在 RunE 调用前若未提供即报错）。
+	// base-package 与 db-name 由 config 层 validate() 负责验证（能读取配置文件值），此处不拦截。
 	// _ = 忽略返回值：MarkFlagRequired 只在 flag 名不存在时才返回 error，此处 flag 刚注册故不会出错。
 	_ = genCmd.MarkFlagRequired("tables")
-	_ = genCmd.MarkFlagRequired("base-package")
-	_ = genCmd.MarkFlagRequired("db-name")
 
 	// 设置分组渲染的 usage 函数
 	genCmd.SetUsageFunc(groupedUsage)
