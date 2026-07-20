@@ -433,8 +433,8 @@ var Layers = map[string]LayerSpec{
 func SelectLayers(onlyTableModify, withoutApi bool) []string {
     // 从 AllLayers()（全 14 层稳定顺序）按两个开关过滤：
     // onlyTableModify=true → 仅保留 po/req-dto/resp-dto/mapper-xml/query/query-req-dto（6 层，对应 --sync-schema）
-    // withoutApi=true      → 仅保留全 14 层去掉 api/api-impl（12 层，对应「未传 --with-api」）
-    // 两者同时 true        → 取交集，即 onlyTableModify 的 6 层（本就不含 api/api-impl）
+    // withoutApi=true      → 仅保留 6 层后端核心：po/mapper/mapper-xml/service/service-impl/query（对应「未传 --with-api」）
+    // 两者同时 true        → 取交集（po/mapper-xml/query 这 3 层，即 --sync-schema 且未传 --with-api）
 }
 ```
 
@@ -566,9 +566,10 @@ import (
 
 | flag 组合 | 输出层 |
 |-----------|--------|
-| 默认（无 `--with-api`） | 12 层：全 14 层去掉 `api` / `api-impl` |
+| 默认（无 `--with-api`） | 6 层后端核心：`po` / `mapper` / `mapper-xml` / `service` / `service-impl` / `query` |
 | `--with-api` | 全 14 层 |
-| `--sync-schema`（不论是否 `--with-api`） | 6 层：`po` / `req-dto` / `resp-dto` / `mapper-xml` / `query` / `query-req-dto` |
+| `--sync-schema`（无 `--with-api`） | 3 层：`po` / `mapper-xml` / `query`（6 层后端核心与「改表影响层」集合的交集） |
+| `--sync-schema --with-api` | 6 层：`po` / `req-dto` / `resp-dto` / `mapper-xml` / `query` / `query-req-dto` |
 
 ---
 

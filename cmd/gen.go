@@ -34,7 +34,7 @@ var (
 	flagDialect    string // --dialect：覆盖配置文件中的方言
 	flagDryRun     bool   // --dry-run：只打印到终端，不落盘
 	flagSyncSchema bool   // --sync-schema：改表后只重新生成受表结构影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
-	flagWithApi    bool   // --with-api：额外生成 API 层 api/api-impl
+	flagWithApi    bool   // --with-api：额外生成 API 层 api/api-impl 及其依赖的 DTO/converter
 
 	// 内联配置 flag：所有 yaml 配置项的命令行等价物（agent 可一行构造完整命令）。
 	// 注意：是否「显式提供」由 Flags().Changed 判定，这些变量的零值不承担缺省语义——
@@ -66,13 +66,13 @@ var (
 var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "生成代码",
-	Example: `  # 最短命令（默认 12 层，不含 API 层）
+	Example: `  # 最短命令（默认 6 层后端核心）
   base-code gen --tables it_user --base-package com.example.hello --db-name hello
 
   # 生成全 14 层（含 Feign api/api-impl）
   base-code gen --tables it_user --base-package com.example.hello --db-name hello --with-api
 
-  # 改表后只刷新受表结构影响的 6 层
+  # 改表后只刷新受表结构影响的层
   base-code gen --tables it_user --base-package com.example.hello --db-name hello --sync-schema
 
   # 完整内联（覆盖连接与 API 参数）
@@ -203,7 +203,7 @@ func init() {
 	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "SQL 方言：mysql 或 postgresql（默认: mysql）")
 	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印生成代码到终端，不落盘（默认: false）")
 	genCmd.Flags().BoolVar(&flagSyncSchema, "sync-schema", false, "改表后只重新生成受表结构影响的层（默认: false）")
-	genCmd.Flags().BoolVar(&flagWithApi, "with-api", false, "额外生成 API 层 api/api-impl（默认: false；加此开关生成全 14 层）")
+	genCmd.Flags().BoolVar(&flagWithApi, "with-api", false, "生成 API 层及其依赖的 DTO/converter（默认: false；不加则仅 6 层后端核心，加则全 14 层）")
 	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（必填）")
 	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（默认: ./src/main/java）")
 	genCmd.Flags().StringVar(&flagResourcesRoot, "resources-root", "", "mapper-xml 输出根目录（默认: 由 output-root 推导）")
