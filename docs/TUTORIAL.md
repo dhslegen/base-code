@@ -109,7 +109,7 @@ type Overrides struct {
 `Load` 现在只是薄封装（保持既有调用方兼容——必须有文件、无内联覆盖）：
 
 ```go
-// internal/config/config.go:112-114
+// internal/config/config.go:114-116
 func Load(path string) (Config, error) {
     return LoadWithOverrides(path, true, Overrides{})
 }
@@ -573,16 +573,16 @@ import (
 
 ---
 
-## 4. 工程级前置依赖
+## 4. 自包含（无工程级前置依赖）
 
-`api` / `api-impl` 层引用以下**目标工程需自行预置**的公共类（base-code 不生成它们）：
+生成的全部代码**不依赖任何目标工程预置类**，拿到产物即可编译（中央组件依赖除外）。这是 v0.2.0 起的能力，此前曾要求目标工程预置 `ApiConstants` 与通用 `PageQueryReqDto` 两个公共类，现已消除：
 
-- **`{base-package}.constants.ApiConstants`**：提供 `NAME`（Feign 服务名）与 `PREFIX`（API 路径前缀），用于 `@FeignClient` 注解及各端点 URL 拼接。
-- **`{base-package}.model.dto.req.PageQueryReqDto`**：非表相关的通用分页请求 DTO（仅含 `current`/`size`），是 `pageAll` 端点的入参。注意：各表生成的 `XxxPageQueryReqDto` 继承自 `XxxQueryReqDto`，与这个通用基类是两回事。
+- **`ApiConstants` → 值内联**：`@FeignClient` 服务名与 API 基础路径由配置 `api:` 节（`service-name` / `base-path`，缺省从 base-package 末段派生）直接渲染进产物，不再 import 任何 `ApiConstants`。
+- **通用 `PageQueryReqDto` → 改签名消除**：`pageAll` 端点从 POST + `@RequestBody PageQueryReqDto` 改为 GET + 两个 `@RequestParam`（`current` / `size`），不再需要通用分页基类。注意：各表生成的 `XxxPageQueryReqDto`（继承 `XxxQueryReqDto`）是独立的表相关 DTO，不受影响。
 
-未预置上述类时，`api`/`api-impl` 层产物无法编译（与源工程既有契约一致）。
+> v0.4.0 起 `api` / `api-impl` 默认不生成（`--with-api` 时才生成）；即便生成，上述自包含性同样成立。
 
-详情参见 [README.md](../README.md) 的"工程级前置依赖"节。
+详情参见 [README.md](../README.md) 的"自包含"节。
 
 ---
 
