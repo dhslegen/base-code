@@ -208,7 +208,7 @@ func applyDefaults(c *Config) {
 	if len(c.AutoFill.UpdateColumns) == 0 {
 		c.AutoFill.UpdateColumns = []string{"updated_at", "updated_by"}
 	}
-	// with-api 缺省 false：默认只生成 12 个后端层，需要 Feign 层的工程显式配 true。
+	// with-api 缺省 false：默认只生成 6 层后端核心，需要 Feign 层的工程显式配 true。
 	if c.WithApi == nil {
 		f := false
 		c.WithApi = &f
