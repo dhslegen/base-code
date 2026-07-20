@@ -62,34 +62,58 @@
 **关键文件**：`internal/config/config.go`
 
 ```go
-// internal/config/config.go:14-23
+// internal/config/config.go:15-25
 type Config struct {
     BasePackage   string     `yaml:"base-package"`
     OutputRoot    string     `yaml:"output-root"`
-    ResourcesRoot string     `yaml:"resources-root"` // 可选；mapper-xml 输出根
+    ResourcesRoot string     `yaml:"resources-root"` // 可选；mapper-xml 输出根，缺省由 OutputRoot 推导
     Author        string     `yaml:"author"`
     UseJakarta    *bool      `yaml:"use-jakarta"` // 指针：区分「未配置」与「配置为 false」
     DateType      string     `yaml:"date-type"`
+    Api           Api        `yaml:"api"`
     Datasource    Datasource `yaml:"datasource"`
     AutoFill      AutoFill   `yaml:"auto-fill"`
 }
 ```
 
+配置来源不止 YAML 文件——`base-code gen` 还支持 15 个内联 flag（`--base-package`、`--db-host` 等，见站 8）。`Overrides` 是「命令行显式提供了什么」的快照，全部用指针字段：
+
 ```go
-// internal/config/config.go:47-62  Load 函数
-func Load(path string) (Config, error) {
-    data, err := os.ReadFile(path)
-    ...
-    var r root
-    if err := yaml.Unmarshal(data, &r); err != nil { ... }
-    cfg := r.BaseCode
-    applyDefaults(&cfg)
-    if cfg.BasePackage == "" {
-        return Config{}, fmt.Errorf("base-package 为必填项")
-    }
-    return cfg, nil
+// internal/config/config.go:60-77
+type Overrides struct {
+    BasePackage    *string
+    OutputRoot     *string
+    ResourcesRoot  *string
+    Author         *string
+    UseJakarta     *bool
+    DateType       *string
+    Dialect        *string
+    DbHost         *string
+    DbPort         *int
+    DbUser         *string
+    DbPassword     *string
+    DbName         *string
+    ServiceName    *string
+    BasePath       *string
+    AutoFillInsert *[]string
+    AutoFillUpdate *[]string
 }
 ```
+
+这是 `UseJakarta *bool` 那个「指针区分未配置/零值」教学点的自然延伸：`nil` 表示「命令行未提供该项」，非 nil（哪怕指向 `""`/`0`/`false`）表示「显式提供」。所以 `--db-port 0` 与「不传 `--db-port`」是两码事——前者会真的把端口设为 0，后者才会触发方言派生（3306/5432）。
+
+`Load` 现在只是薄封装（保持既有调用方兼容——必须有文件、无内联覆盖）：
+
+```go
+// internal/config/config.go:112-114
+func Load(path string) (Config, error) {
+    return LoadWithOverrides(path, true, Overrides{})
+}
+```
+
+真正的加载入口是 `LoadWithOverrides(path, requireFile, ov)`，优先级为 **flag > 配置文件 > 约定默认值**：
+- `requireFile=true`（用户显式 `--config`）：文件缺失直接报错；`requireFile=false`（纯 flag 模式，`Load` 不会走到这一态）：文件缺失是合法状态，从零配置起步。
+- 依次执行：`applyOverrides` 叠加非 nil 的 `ov` 字段 → `applyDefaults` 补约定默认值（含方言→端口派生）→ 用 `ov.DbPort` 再覆盖一次端口（防止显式 `--db-port 0` 被 3306/5432 派生值顶掉）→ `validate` 校验 6 项必填（含 `--dialect`），报错带 flag 名与可复制的完整命令样例。
 
 **约定默认值**（`applyDefaults`）：
 - `UseJakarta`：nil → `true`（Spring Boot 3+ 默认 jakarta）
@@ -440,21 +464,35 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 #### Flag 定义
 
 ```go
-// cmd/gen.go:30-37
+// cmd/gen.go:30-36（完整 var 块还有 15 个内联配置 flag，延伸至 56 行）
 var (
-    flagConfig          string // --config
-    flagTables          string // --tables（必填）
-    flagDialect         string // --dialect
-    flagDryRun          bool   // --dry-run
-    flagOnlyTableModify bool   // --only-table-modify
-    flagWithoutApi      bool   // --without-api
+    flagConfig          string // --config：配置文件路径
+    flagTables          string // --tables：逗号分隔的表名（必填）
+    flagDialect         string // --dialect：覆盖配置文件中的方言
+    flagDryRun          bool   // --dry-run：只打印到终端，不落盘
+    flagOnlyTableModify bool   // --only-table-modify：仅生成改表影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
+    flagWithoutApi      bool   // --without-api：不生成 API 相关层，保留后端内部层（service/service-impl/po/query/mapper/mapper-xml）
+    ...
 )
 ```
+
+15 个内联配置 flag（`--base-package`、`--output-root`、`--db-host` 等，与 `base-code.yaml` 各配置键一一对应）不在本文重复列出，完整清单见 [README.md](../README.md) 的「Flag 说明」节——单处维护，避免和这里脱节。
+
+`genCmd.RunE` 把「哪些内联 flag 要装进 `config.Overrides`」交给 `fs.Changed`（`*pflag.FlagSet` 方法）判断，而不是看值是否为零值：
+
+```go
+// cmd/gen.go:98-100
+if fs.Changed("db-port") {
+    ov.DbPort = &flagDbPort
+}
+```
+
+这与 config 站的 `*bool`/`Overrides` 指针语义呼应：`fs.Changed` 报告某个 flag 是否在命令行**出现过**，因此 `--db-port 0`、`--use-jakarta=false` 这类「显式传零值」也会被正确识别为「用户提供了」，不会被误判成「未提供，走缺省」。
 
 #### 驱动 + DSN 选择（方言感知）
 
 ```go
-// cmd/gen.go:134-148
+// cmd/gen.go:223-238
 func dbDriverAndDSN(d dialect.SqlDialect, cfg config.Config) (string, string) {
     switch d {
     case dialect.PostgreSQL:
@@ -468,7 +506,7 @@ func dbDriverAndDSN(d dialect.SqlDialect, cfg config.Config) (string, string) {
 MySQL 和 PostgreSQL 驱动通过**空白导入**注册：
 
 ```go
-// cmd/gen.go:9-16
+// cmd/gen.go:10,16（完整 import 块为 3-26，中间是驱动注册机制的详细注释）
 import (
     _ "github.com/go-sql-driver/mysql"   // 注册 "mysql" 驱动
     _ "github.com/jackc/pgx/v5/stdlib"  // 注册 "pgx" 驱动
