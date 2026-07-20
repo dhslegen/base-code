@@ -284,23 +284,23 @@ func TestSelectLayers(t *testing.T) {
 	wa := SelectLayers(false, true)
 	for _, must := range []string{"po", "service-impl", "mapper-xml"} {
 		if !contains(wa, must) {
-			t.Errorf("--without-api 应含 %q", must)
+			t.Errorf("withoutApi=true 分支应含 %q", must)
 		}
 	}
 	for _, no := range []string{"api", "api-impl", "req-dto"} {
 		if contains(wa, no) {
-			t.Errorf("--without-api 不应含 %q", no)
+			t.Errorf("withoutApi=true 分支不应含 %q", no)
 		}
 	}
 	// onlyTableModify：含 req-dto/resp-dto，不含 service
 	otm := SelectLayers(true, false)
 	for _, must := range []string{"po", "req-dto", "resp-dto", "query-req-dto"} {
 		if !contains(otm, must) {
-			t.Errorf("--only-table-modify 应含 %q", must)
+			t.Errorf("onlyTableModify=true 分支应含 %q", must)
 		}
 	}
 	if contains(otm, "service") {
-		t.Error("--only-table-modify 不应含 service")
+		t.Error("onlyTableModify=true 分支不应含 service")
 	}
 	// 两者交集 = {po, query, mapper-xml}
 	both := SelectLayers(true, true)
