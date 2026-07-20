@@ -52,7 +52,7 @@ func TestLoad_EmptyBasePackage(t *testing.T) {
 func TestLoad_ExplicitUseJakartaFalse(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
-	if err := os.WriteFile(path, []byte("base-code:\n  base-package: com.x\n  output-root: ./x\n  use-jakarta: false\n  datasource:\n    dialect: mysql\n    host: h\n    username: u\n    database: d\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("base-code:\n  tables: [t]\n  base-package: com.x\n  output-root: ./x\n  use-jakarta: false\n  datasource:\n    dialect: mysql\n    host: h\n    username: u\n    database: d\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(path)
@@ -83,6 +83,7 @@ func TestLoad_ApiExplicit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
 	yaml := `base-code:
+  tables: [t]
   base-package: com.example.hello
   output-root: ./x
   api:
@@ -116,9 +117,10 @@ func intPtr(i int) *int             { return &i }
 func boolPtr(b bool) *bool          { return &b }
 func colsPtr(c ...string) *[]string { return &c }
 
-// fullOverrides 返回一份可通过必填校验的最小完整内联配置（新语义：仅 base-package + db-name）。
+// fullOverrides 返回一份可通过必填校验的最小完整内联配置（tables + base-package + db-name 三项）。
 func fullOverrides() Overrides {
 	return Overrides{
+		Tables:      colsPtr("it_user"),
 		BasePackage: strPtr("com.example.hello"),
 		DbName:      strPtr("hello"),
 	}
@@ -196,9 +198,9 @@ func TestLoadWithOverrides_MissingRequiredHint(t *testing.T) {
 		OutputRoot: strPtr("./x"),
 	})
 	if err == nil {
-		t.Fatal("缺 base-package/db-name 应报错")
+		t.Fatal("缺 tables/base-package/db-name 应报错")
 	}
-	for _, want := range []string{"--base-package", "--db-name", "base-code gen"} {
+	for _, want := range []string{"--tables", "--base-package", "--db-name", "base-code gen"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息应含 %q，实际: %v", want, err)
 		}
@@ -257,6 +259,7 @@ func TestLoad_FileValuesBeatConventionDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
 	yaml := `base-code:
+  tables: [t]
   base-package: com.x
   output-root: ./custom/java
   datasource:
@@ -292,6 +295,7 @@ func TestLoad_WithApiExplicitTrue(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
 	yaml := `base-code:
+  tables: [t]
   base-package: com.x
   with-api: true
   datasource:
@@ -306,6 +310,69 @@ func TestLoad_WithApiExplicitTrue(t *testing.T) {
 	}
 	if cfg.WithApi == nil || *cfg.WithApi != true {
 		t.Errorf("yaml 显式 true 应保留，得到 %v", cfg.WithApi)
+	}
+}
+
+// TestLoad_TablesFromFile 验证配置文件可提供 tables（列表形态），无需 --tables flag。
+func TestLoad_TablesFromFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	yaml := `base-code:
+  tables: [sys_user, sys_role]
+  base-package: com.x
+  datasource:
+    database: d
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("配置文件提供 tables 应通过校验: %v", err)
+	}
+	if len(cfg.Tables) != 2 || cfg.Tables[0] != "sys_user" || cfg.Tables[1] != "sys_role" {
+		t.Errorf("Tables = %v, want [sys_user sys_role]", cfg.Tables)
+	}
+}
+
+// TestLoadWithOverrides_TablesFlagOverridesFile 验证 --tables 整体覆盖文件里的 tables。
+func TestLoadWithOverrides_TablesFlagOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	yaml := `base-code:
+  tables: [file_a, file_b]
+  base-package: com.x
+  datasource:
+    database: d
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadWithOverrides(path, true, Overrides{Tables: colsPtr("flag_t")})
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if len(cfg.Tables) != 1 || cfg.Tables[0] != "flag_t" {
+		t.Errorf("--tables 应整体覆盖文件值，得到 %v", cfg.Tables)
+	}
+}
+
+// TestLoadWithOverrides_MissingTablesOnly 验证只缺 tables 时，错误精确指向 --tables。
+func TestLoadWithOverrides_MissingTablesOnly(t *testing.T) {
+	_, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, Overrides{
+		BasePackage: strPtr("com.x"),
+		DbName:      strPtr("d"),
+	})
+	if err == nil {
+		t.Fatal("缺 tables 应报错")
+	}
+	if !strings.Contains(err.Error(), "--tables") {
+		t.Errorf("错误信息应含 --tables，实际: %v", err)
+	}
+	for _, banned := range []string{"--base-package", "--db-name"} {
+		if strings.Contains(strings.SplitN(err.Error(), "\n", 2)[0], banned) {
+			t.Errorf("缺失清单不应含已提供的 %q，实际: %v", banned, err)
+		}
 	}
 }
 

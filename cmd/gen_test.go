@@ -52,6 +52,30 @@ func TestGenHelpGroupedOutput(t *testing.T) {
 	}
 }
 
+// TestGenMissingTablesFailsAtMergedValidate 验证 --tables 不再是 cobra 级必填：
+// 缺席时不该在解析阶段被 "required flag" 拦下（那样配置文件里的 tables 永远没机会生效），
+// 而应走到合并 flag+配置文件之后的 config.validate，报「缺少必填配置：--tables」。
+func TestGenMissingTablesFailsAtMergedValidate(t *testing.T) {
+	resetGenFlags()
+	buf := &bytes.Buffer{}
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	// 测试进程 cwd 是 cmd/，无 base-code.yaml → 纯 flag 模式，tables 无任何来源
+	rootCmd.SetArgs([]string{"gen", "--base-package", "com.x", "--db-name", "d"})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("缺 tables（flag 与配置文件均未提供）应返回 error，实际返回 nil")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "required flag") {
+		t.Errorf("必填校验不应发生在 cobra 解析层（会绕过配置文件），实际: %v", err)
+	}
+	if !strings.Contains(msg, "--tables") || !strings.Contains(msg, "缺少必填配置") {
+		t.Errorf("错误应来自合并后校验并含 --tables，实际: %v", err)
+	}
+}
+
 // TestGenRejectsRemovedWithoutApiFlag 覆盖 F5 提到的旧 flag 已删场景：
 // v0.4.0 把 --without-api 反转为 --with-api，旧 flag 名不应再被识别。
 func TestGenRejectsRemovedWithoutApiFlag(t *testing.T) {

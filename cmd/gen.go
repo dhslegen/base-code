@@ -30,7 +30,7 @@ import (
 // 包级变量（package-level var）在命令执行前已由 init() 绑定到对应 flag。
 var (
 	flagConfig     string // --config：配置文件路径
-	flagTables     string // --tables：逗号分隔的表名（必填）
+	flagTables     string // --tables：逗号分隔的表名（与配置文件 tables 合并后必填）
 	flagDialect    string // --dialect：覆盖配置文件中的方言
 	flagDryRun     bool   // --dry-run：只打印到终端，不落盘
 	flagSyncSchema bool   // --sync-schema：改表后只重新生成受表结构影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
@@ -91,6 +91,10 @@ var genCmd = &cobra.Command{
 		// 这与「值 == 零值」不同：--use-jakarta=false / --db-port 0 也算显式提供。
 		fs := cmd.Flags()
 		ov := config.Overrides{}
+		if fs.Changed("tables") {
+			ts := splitCSV(flagTables)
+			ov.Tables = &ts
+		}
 		if fs.Changed("base-package") {
 			ov.BasePackage = &flagBasePackage
 		}
@@ -187,7 +191,7 @@ var genCmd = &cobra.Command{
 		// with-api 已归 config 语义（flag > 文件 > 缺省 false）；sync-schema 是纯运行开关。
 		// SelectLayers 第二参数是「是否排除 API 层」，与 with-api 正好相反，故取反。
 		layers := generator.SelectLayers(flagSyncSchema, !*cfg.WithApi)
-		for _, t := range splitCSV(flagTables) {
+		for _, t := range cfg.Tables {
 			meta, err := sc.ScanTable(t)
 			if err != nil {
 				return err
@@ -205,12 +209,12 @@ func init() {
 	// StringVar / BoolVar 把命令行 flag 绑定到包级变量。
 	// 参数：目标变量指针、flag 名称、默认值、帮助说明
 	genCmd.Flags().StringVar(&flagConfig, "config", "base-code.yaml", "配置文件路径（默认: base-code.yaml，缺席时进入纯 flag 模式）")
-	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名，如 sys_user,sys_role（必填）")
+	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名，如 sys_user,sys_role（必填；可由配置文件 tables 提供）")
 	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "SQL 方言：mysql 或 postgresql（默认: mysql）")
 	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印生成代码到终端，不落盘（默认: false）")
 	genCmd.Flags().BoolVar(&flagSyncSchema, "sync-schema", false, "改表后只重新生成受表结构影响的层（默认 API-less 工程 3 层 po/mapper-xml/query；配 --with-api 含 DTO 共 6 层）（默认: false）")
 	genCmd.Flags().BoolVar(&flagWithApi, "with-api", false, "生成 API 层及其依赖的 DTO/converter（默认: false；不加则仅 6 层后端核心，加则全 14 层）")
-	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（必填）")
+	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（必填；可由配置文件提供）")
 	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（默认: ./src/main/java）")
 	genCmd.Flags().StringVar(&flagResourcesRoot, "resources-root", "", "mapper-xml 输出根目录（默认: 由 output-root 推导）")
 	genCmd.Flags().StringVar(&flagAuthor, "author", "", "代码 @author（默认: git config user.name）")
@@ -220,16 +224,15 @@ func init() {
 	genCmd.Flags().IntVar(&flagDbPort, "db-port", 0, "数据库端口（默认: 按方言 3306/5432）")
 	genCmd.Flags().StringVar(&flagDbUser, "db-user", "", "数据库用户名（默认: root）")
 	genCmd.Flags().StringVar(&flagDbPassword, "db-password", "", "数据库密码（默认: 空）")
-	genCmd.Flags().StringVar(&flagDbName, "db-name", "", "数据库名（必填）")
+	genCmd.Flags().StringVar(&flagDbName, "db-name", "", "数据库名（必填；可由配置文件提供）")
 	genCmd.Flags().StringVar(&flagApiServiceName, "api-service-name", "", "@FeignClient 服务名（默认: base-package 末段）")
 	genCmd.Flags().StringVar(&flagApiBasePath, "api-base-path", "", "API 基础路径前缀（默认: /+base-package 末段）")
 	genCmd.Flags().StringVar(&flagAutoFillInsert, "auto-fill-insert", "", "插入自动填充列，逗号分隔（默认: created_at,updated_at,created_by,updated_by）")
 	genCmd.Flags().StringVar(&flagAutoFillUpdate, "auto-fill-update", "", "更新自动填充列，逗号分隔（默认: updated_at,updated_by）")
 
-	// MarkFlagRequired 标记 --tables 为 cobra 必填（在 RunE 调用前若未提供即报错）。
-	// base-package 与 db-name 由 config 层 validate() 负责验证（能读取配置文件值），此处不拦截。
-	// _ = 忽略返回值：MarkFlagRequired 只在 flag 名不存在时才返回 error，此处 flag 刚注册故不会出错。
-	_ = genCmd.MarkFlagRequired("tables")
+	// 刻意不做任何 MarkFlagRequired：cobra 的必填校验发生在解析阶段、早于 RunE 读配置文件，
+	// 会误杀「配置文件已提供该项」的合法用法。三个必填项（tables/base-package/db-name）
+	// 统一由 config 层 validate() 在合并 flag+配置文件的生效值上裁决。
 
 	// 设置分组渲染的 usage 函数
 	genCmd.SetUsageFunc(groupedUsage)

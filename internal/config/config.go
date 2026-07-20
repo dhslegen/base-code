@@ -13,6 +13,7 @@ import (
 // Config 是生成器的全部配置。
 // Go 小白知识点：结构体标签 `yaml:"..."` 告诉 yaml 库 YAML 键如何对应字段。
 type Config struct {
+	Tables        []string   `yaml:"tables"` // 生成目标表；flag（CSV）与配置文件（列表）二选一，合并后必填
 	BasePackage   string     `yaml:"base-package"`
 	OutputRoot    string     `yaml:"output-root"`
 	ResourcesRoot string     `yaml:"resources-root"` // 可选；mapper-xml 输出根，缺省由 OutputRoot 推导
@@ -59,6 +60,7 @@ type root struct {
 // Go 小白知识点：全指针字段——nil 表示「命令行未提供该项」，与零值（""、0、false）区分开，
 // 这样 --use-jakarta=false、--db-port 0 这类「显式传零值」也能正确表达。
 type Overrides struct {
+	Tables         *[]string
 	BasePackage    *string
 	OutputRoot     *string
 	ResourcesRoot  *string
@@ -117,6 +119,9 @@ func Load(path string) (Config, error) {
 
 // applyOverrides 将命令行显式提供的内联配置逐项覆盖到 cfg（nil 跳过）。
 func applyOverrides(c *Config, ov Overrides) {
+	if ov.Tables != nil {
+		c.Tables = *ov.Tables
+	}
 	if ov.BasePackage != nil {
 		c.BasePackage = *ov.BasePackage
 	}
@@ -171,9 +176,13 @@ func applyOverrides(c *Config, ov Overrides) {
 }
 
 // validate 校验必填项。错误信息面向 agent 自修复：列出缺失 flag 并给出可复制的最短命令样例。
-// 注：--tables 由 cobra 的 MarkFlagRequired 把守，不在配置层校验。
+// 必填的裁决对象是「合并 flag+配置文件后的生效值」——任一来源提供即算提供，
+// 因此这里是唯一的必填关卡，cobra 层不做 MarkFlagRequired（那会在读配置文件前误杀）。
 func validate(c Config) error {
 	var missing []string
+	if len(c.Tables) == 0 {
+		missing = append(missing, "--tables")
+	}
 	if c.BasePackage == "" {
 		missing = append(missing, "--base-package")
 	}

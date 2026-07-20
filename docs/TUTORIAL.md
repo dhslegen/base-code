@@ -62,8 +62,9 @@
 **关键文件**：`internal/config/config.go`
 
 ```go
-// internal/config/config.go:15-26
+// internal/config/config.go:15-27
 type Config struct {
+    Tables        []string   `yaml:"tables"` // 生成目标表；flag（CSV）与配置文件（列表）二选一，合并后必填
     BasePackage   string     `yaml:"base-package"`
     OutputRoot    string     `yaml:"output-root"`
     ResourcesRoot string     `yaml:"resources-root"` // 可选；mapper-xml 输出根，缺省由 OutputRoot 推导
@@ -77,11 +78,12 @@ type Config struct {
 }
 ```
 
-配置来源不止 YAML 文件——`base-code gen` 还支持 17 个内联 flag（`--base-package`、`--db-host`、`--with-api` 等，见站 8）。`Overrides` 是「命令行显式提供了什么」的快照，全部用指针字段：
+配置来源不止 YAML 文件——`base-code gen` 还支持 18 个内联 flag（`--tables`、`--base-package`、`--db-host`、`--with-api` 等，见站 8）。`Overrides` 是「命令行显式提供了什么」的快照，全部用指针字段：
 
 ```go
-// internal/config/config.go:61-79
+// internal/config/config.go:62-81
 type Overrides struct {
+    Tables         *[]string
     BasePackage    *string
     OutputRoot     *string
     ResourcesRoot  *string
@@ -109,7 +111,7 @@ type Overrides struct {
 `Load` 现在只是薄封装（保持既有调用方兼容——必须有文件、无内联覆盖）：
 
 ```go
-// internal/config/config.go:114-116
+// internal/config/config.go:116-118
 func Load(path string) (Config, error) {
     return LoadWithOverrides(path, true, Overrides{})
 }
@@ -118,7 +120,7 @@ func Load(path string) (Config, error) {
 真正的加载入口是 `LoadWithOverrides(path, requireFile, ov)`，优先级为 **flag > 配置文件 > 约定默认值**：
 - `requireFile=true`（用户显式 `--config`）：文件缺失直接报错；`requireFile=false`（纯 flag 模式，`Load` 不会走到这一态）：文件缺失是合法状态，从零配置起步。
 - 依次执行：`applyOverrides` 叠加非 nil 的 `ov` 字段 → `applyDefaults` 补约定默认值（含方言→端口派生）→ 用 `ov.DbPort` 再覆盖一次端口（防止显式 `--db-port 0` 被 3306/5432 派生值顶掉）→ `validate` 校验必填项，报错带 flag 名与可复制的完整命令样例。
-- 必填项现在只剩 2 项：`base-package`、`db-name`（`tables` 由 cobra 的 `MarkFlagRequired` 把守，不在 `validate` 里）——数据库连接、API 层标识等其余项全部约定默认值下沉，agent 三参直达。
+- 必填项共 3 项：`tables`、`base-package`、`db-name`，全部由 `validate` 在**合并 flag+配置文件后的生效值**上裁决（cobra 层不做 `MarkFlagRequired`——那发生在读配置文件之前，会误杀「配置文件已提供」的合法用法）；任一来源提供即算提供。数据库连接、API 层标识等其余项全部约定默认值下沉，agent 三参直达。
 
 **约定默认值**（`applyDefaults`）：
 - `UseJakarta`：nil → `true`（Spring Boot 3+ 默认 jakarta）
@@ -479,7 +481,7 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 // cmd/gen.go:31-37（完整 var 块还有 15 个内联配置 flag，延伸至 56 行）
 var (
     flagConfig     string // --config：配置文件路径
-    flagTables     string // --tables：逗号分隔的表名（必填）
+    flagTables     string // --tables：逗号分隔的表名（与配置文件 tables 合并后必填）
     flagDialect    string // --dialect：覆盖配置文件中的方言
     flagDryRun     bool   // --dry-run：只打印到终端，不落盘
     flagSyncSchema bool   // --sync-schema：改表后只重新生成受表结构影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
@@ -488,12 +490,12 @@ var (
 )
 ```
 
-这 6 个变量里 `flagDialect`/`flagWithApi` 也对应 `Overrides` 字段；连同下方另 15 个内联配置 flag，共 17 个内联 flag（`--base-package`、`--output-root`、`--db-host`、`--with-api` 等，与 `base-code.yaml` 各配置键一一对应）不在本文重复列出，完整清单见 [README.md](../README.md) 的「Flag 说明」节（按生成目标/数据库连接/API 层/生成行为四组渲染）——单处维护，避免和这里脱节。
+这 6 个变量里 `flagTables`/`flagDialect`/`flagWithApi` 也对应 `Overrides` 字段；连同下方另 15 个内联配置 flag，共 18 个内联 flag（`--base-package`、`--output-root`、`--db-host`、`--with-api` 等，与 `base-code.yaml` 各配置键一一对应）不在本文重复列出，完整清单见 [README.md](../README.md) 的「Flag 说明」节（按生成目标/数据库连接/API 层/生成行为四组渲染）——单处维护，避免和这里脱节。
 
 `genCmd.RunE` 把「哪些内联 flag 要装进 `config.Overrides`」交给 `fs.Changed`（`*pflag.FlagSet` 方法）判断，而不是看值是否为零值：
 
 ```go
-// cmd/gen.go:112-114
+// cmd/gen.go:122-124
 if fs.Changed("db-port") {
     ov.DbPort = &flagDbPort
 }
@@ -504,7 +506,7 @@ if fs.Changed("db-port") {
 #### 驱动 + DSN 选择（方言感知）
 
 ```go
-// cmd/gen.go:223-238
+// cmd/gen.go:248-263
 func dbDriverAndDSN(d dialect.SqlDialect, cfg config.Config) (string, string) {
     switch d {
     case dialect.PostgreSQL:

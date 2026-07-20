@@ -1,4 +1,5 @@
 base-code:
+  tables: [it_user]
   base-package: com.dahaoshen.demo
   output-root: ./out/src/main/java
   datasource:
