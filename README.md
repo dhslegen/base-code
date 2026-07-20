@@ -55,6 +55,21 @@ go build -o base-code .
 
 ## 用法
 
+### 一行命令（无需配置文件，agent 友好）
+
+所有配置项均有对应 flag，可不写 `base-code.yaml` 直接执行（优先级：flag > 配置文件 > 约定默认值）：
+
+```bash
+base-code gen --tables it_user \
+  --base-package com.example.hello --output-root ./src/main/java \
+  --dialect mysql --db-host 127.0.0.1 --db-user root --db-password '你的密码' --db-name hello-mysql \
+  --service-name hello-service --base-path /admin-api/hello
+```
+
+- `--db-port` 缺省按方言派生（mysql→3306，postgresql→5432）；`--service-name`/`--base-path` 缺省从 `--base-package` 末段派生。
+- 两者混用时 flag 逐项覆盖文件值；显式 `--config` 指向的文件必须存在，未显式时默认 `base-code.yaml` 缺席即进入纯 flag 模式。
+- 缺必填项时报错信息会给出可复制的完整命令样例，agent 读错误即可自修复。
+
 ### 命令格式
 
 ```
@@ -77,6 +92,21 @@ base-code gen \
 | `--without-api` | bool | `false` | 不生成 API 相关层，仅保留后端内部层 |
 | `--only-table-modify` | bool | `false` | 仅生成改表影响的层（用于改列后局部重生成） |
 | `--dry-run` | bool | `false` | 只打印生成代码到终端，不落盘 |
+| `--author` | string | 读 git config user.name | 代码 @author（内联，缺省读 git config user.name） |
+| `--auto-fill-insert` | string | （无） | 插入自动填充列，逗号分隔（内联） |
+| `--auto-fill-update` | string | （无） | 更新自动填充列，逗号分隔（内联） |
+| `--base-package` | string | （使用配置文件中的值） | Java 基础包名（内联，覆盖配置文件） |
+| `--base-path` | string | `/+base-package 末段` | API 基础路径前缀（内联） |
+| `--date-type` | string | `modern` | `modern`=java.time.*，`legacy`=java.util.Date（内联） |
+| `--db-host` | string | （使用配置文件中的值） | 数据库主机（内联） |
+| `--db-name` | string | （使用配置文件中的值） | 数据库名（内联） |
+| `--db-password` | string | （使用配置文件中的值） | 数据库密码（内联） |
+| `--db-port` | int | 按方言派生 | 数据库端口（内联，缺省 mysql→3306，postgresql→5432） |
+| `--db-user` | string | （使用配置文件中的值） | 数据库用户名（内联） |
+| `--output-root` | string | （使用配置文件中的值） | Java 源文件输出根目录（内联） |
+| `--resources-root` | string | 由 output-root 推导 | mapper-xml 输出根目录（内联） |
+| `--service-name` | string | base-package 末段 | @FeignClient 服务名（内联） |
+| `--use-jakarta` | bool | `true` | `true`=jakarta 包（Spring Boot 3+），`false`=javax 包（内联） |
 
 ### 最小配置文件（base-code.yaml）
 
