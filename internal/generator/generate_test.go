@@ -280,37 +280,34 @@ func TestSelectLayers(t *testing.T) {
 	if got := SelectLayers(false, false); !reflect.DeepEqual(got, AllLayers()) {
 		t.Errorf("默认应等于 AllLayers()（全14层同序），得 %v", got)
 	}
-	// withoutApi（即 --with-api 未开启的默认态）：12 层，仅排除 api/api-impl，DTO/converter 均保留
+	// withoutApi：不含 api/api-impl/dto
 	wa := SelectLayers(false, true)
-	if len(wa) != 12 {
-		t.Errorf("--with-api 未开启应为 12 层，得 %d 层 %v", len(wa), wa)
-	}
-	for _, must := range []string{"po", "service-impl", "mapper-xml", "req-dto", "converter"} {
+	for _, must := range []string{"po", "service-impl", "mapper-xml"} {
 		if !contains(wa, must) {
-			t.Errorf("默认（不含 API 层）应含 %q", must)
+			t.Errorf("--without-api 应含 %q", must)
 		}
 	}
-	for _, no := range []string{"api", "api-impl"} {
+	for _, no := range []string{"api", "api-impl", "req-dto"} {
 		if contains(wa, no) {
-			t.Errorf("默认（不含 API 层）不应含 %q", no)
+			t.Errorf("--without-api 不应含 %q", no)
 		}
 	}
 	// onlyTableModify：含 req-dto/resp-dto，不含 service
 	otm := SelectLayers(true, false)
 	for _, must := range []string{"po", "req-dto", "resp-dto", "query-req-dto"} {
 		if !contains(otm, must) {
-			t.Errorf("--sync-schema 应含 %q", must)
+			t.Errorf("--only-table-modify 应含 %q", must)
 		}
 	}
 	if contains(otm, "service") {
-		t.Error("--sync-schema 不应含 service")
+		t.Error("--only-table-modify 不应含 service")
 	}
-	// 两者交集：onlyTableModify 的 6 层本就都不含 api/api-impl，故交集即其自身 6 层
+	// 两者交集 = {po, query, mapper-xml}
 	both := SelectLayers(true, true)
-	if len(both) != 6 {
-		t.Errorf("两者交集应 6 层，得 %d 层 %v", len(both), both)
+	if len(both) != 3 {
+		t.Errorf("两者交集应 3 层，得 %v", both)
 	}
-	for _, must := range []string{"po", "req-dto", "resp-dto", "mapper-xml", "query", "query-req-dto"} {
+	for _, must := range []string{"po", "query", "mapper-xml"} {
 		if !contains(both, must) {
 			t.Errorf("交集应含 %q", must)
 		}

@@ -291,11 +291,7 @@ func AllLayers() []string {
 	}
 }
 
-// onlyTableModifySet / withoutApiSet 是 SelectLayers 的两个过滤集合。
-//
-// withoutApiSet = AllLayers() 去掉 api/api-impl（12 层）：CLI 层 --with-api 语义反转后，
-// "不生成 API 层"应仅排除这两层 API 相关产物，其余 12 层（含 DTO/converter）照常生成——
-// 与 --help 的"默认 12 层，不含 API 层"承诺保持一致。
+// onlyTableModifySet / withoutApiSet 复现 Java BaseCodeApplication 的层过滤集合。
 //
 // Go 小白知识点：map[string]bool 当集合用（O(1) 成员判断），比 []string 线性扫描快；
 // 包级 var 只初始化一次，整个程序生命周期共享，不会重复 alloc。
@@ -304,17 +300,15 @@ var onlyTableModifySet = map[string]bool{
 	"mapper-xml": true, "query": true, "query-req-dto": true,
 }
 var withoutApiSet = map[string]bool{
-	"po": true, "mapper": true, "mapper-xml": true, "service": true, "service-impl": true,
-	"query": true, "converter": true, "req-dto": true, "resp-dto": true, "query-req-dto": true,
-	"page-query-req-dto": true, "update-by-query-req-dto": true,
+	"service": true, "service-impl": true, "po": true,
+	"query": true, "mapper": true, "mapper-xml": true,
 }
 
 // SelectLayers 按两个开关对全集做交集过滤：
 //   - 默认（两者 false）：返回全 14 层。
-//   - onlyTableModify=true：仅保留"改表影响层"（po/req-dto/resp-dto/mapper-xml/query/query-req-dto，共 6 层）。
-//   - withoutApi=true：仅保留"非 API 层"，即全 14 层去掉 api/api-impl（共 12 层）。
-//   - 两者同时 true：取交集——onlyTableModify 的 6 层本就都不含 api/api-impl，
-//     故交集即 onlyTableModify 的 6 层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）。
+//   - onlyTableModify=true：仅保留"改表影响层"（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）。
+//   - withoutApi=true：仅保留"非 API 层"（service/service-impl/po/query/mapper/mapper-xml）。
+//   - 两者同时 true：取交集（po/query/mapper-xml 这 3 层）。
 //
 // Go 小白知识点：用 map 做集合（值恒 true）做 O(1) 成员判断，按 AllLayers() 全集顺序过滤
 // 以保持稳定输出顺序（map 遍历是随机序，切片遍历是稳定序）。
