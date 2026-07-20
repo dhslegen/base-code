@@ -18,6 +18,7 @@ import (
 	// 使其符合标准库 database/sql 接口（*sql.DB），从而与 sql.Open 无缝配合。
 	// 注意：pgx 的原生 API（pgxpool.Pool）性能更高，但这里统一用 database/sql 便于复用扫表逻辑。
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/dhslegen/base-code/internal/config"
 	"github.com/dhslegen/base-code/internal/dialect"
@@ -28,12 +29,12 @@ import (
 // flag 变量：cobra 会把命令行 --config=xxx 等解析结果写入这些变量。
 // 包级变量（package-level var）在命令执行前已由 init() 绑定到对应 flag。
 var (
-	flagConfig          string // --config：配置文件路径
-	flagTables          string // --tables：逗号分隔的表名（必填）
-	flagDialect         string // --dialect：覆盖配置文件中的方言
-	flagDryRun          bool   // --dry-run：只打印到终端，不落盘
-	flagOnlyTableModify bool   // --only-table-modify：仅生成改表影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
-	flagWithoutApi      bool   // --without-api：不生成 API 相关层，保留后端内部层（service/service-impl/po/query/mapper/mapper-xml）
+	flagConfig     string // --config：配置文件路径
+	flagTables     string // --tables：逗号分隔的表名（必填）
+	flagDialect    string // --dialect：覆盖配置文件中的方言
+	flagDryRun     bool   // --dry-run：只打印到终端，不落盘
+	flagSyncSchema bool   // --sync-schema：改表后只重新生成受表结构影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
+	flagWithApi    bool   // --with-api：额外生成 API 层 api/api-impl
 
 	// 内联配置 flag：所有 yaml 配置项的命令行等价物（agent 可一行构造完整命令）。
 	// 注意：是否「显式提供」由 Flags().Changed 判定，这些变量的零值不承担缺省语义——
@@ -49,8 +50,8 @@ var (
 	flagDbUser         string
 	flagDbPassword     string
 	flagDbName         string
-	flagServiceName    string
-	flagBasePath       string
+	flagApiServiceName string // @FeignClient 服务名
+	flagApiBasePath    string // API 基础路径前缀
 	flagAutoFillInsert string
 	flagAutoFillUpdate string
 )
@@ -65,6 +66,19 @@ var (
 var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "生成代码",
+	Example: `  # 最短命令（默认 12 层，不含 API 层）
+  base-code gen --tables it_user --base-package com.example.hello --db-name hello
+
+  # 生成全 14 层（含 Feign api/api-impl）
+  base-code gen --tables it_user --base-package com.example.hello --db-name hello --with-api
+
+  # 改表后只刷新受表结构影响的 6 层
+  base-code gen --tables it_user --base-package com.example.hello --db-name hello --sync-schema
+
+  # 完整内联（覆盖连接与 API 参数）
+  base-code gen --tables it_user --base-package com.example.hello --db-name hello \
+    --dialect postgresql --db-host 10.0.0.5 --db-user admin --db-password '***' \
+    --api-service-name hello-service --api-base-path /admin-api/hello --with-api`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 1. 装配命令行内联覆盖（仅收集用户显式提供的 flag）。
 		// Go 小白知识点：fs.Changed(name) 报告该 flag 是否在命令行出现过——
@@ -107,11 +121,14 @@ var genCmd = &cobra.Command{
 		if fs.Changed("db-name") {
 			ov.DbName = &flagDbName
 		}
-		if fs.Changed("service-name") {
-			ov.ServiceName = &flagServiceName
+		if fs.Changed("with-api") {
+			ov.WithApi = &flagWithApi
 		}
-		if fs.Changed("base-path") {
-			ov.BasePath = &flagBasePath
+		if fs.Changed("api-service-name") {
+			ov.ServiceName = &flagApiServiceName
+		}
+		if fs.Changed("api-base-path") {
+			ov.BasePath = &flagApiBasePath
 		}
 		if fs.Changed("auto-fill-insert") {
 			cols := splitCSV(flagAutoFillInsert)
@@ -161,11 +178,9 @@ var genCmd = &cobra.Command{
 		}
 
 		// 7. 遍历表，逐表生成代码层。
-		// M2-B-2：默认生成全 14 层；--without-api / --only-table-modify 按交集过滤
-		// Go 小白知识点：SelectLayers 已在 generator 包导出，这里直接调用——
-		// 两个 flag 默认均为 false，此时 SelectLayers(false,false) 返回全 14 层，
-		// 完全替代原来硬编码的 7 层切片，保持向后兼容同时支持新过滤模式。
-		layers := generator.SelectLayers(flagOnlyTableModify, flagWithoutApi)
+		// with-api 已归 config 语义（flag > 文件 > 缺省 false）；sync-schema 是纯运行开关。
+		// SelectLayers 第二参数是「是否排除 API 层」，与 with-api 正好相反，故取反。
+		layers := generator.SelectLayers(flagSyncSchema, !*cfg.WithApi)
 		for _, t := range splitCSV(flagTables) {
 			meta, err := sc.ScanTable(t)
 			if err != nil {
@@ -183,34 +198,37 @@ var genCmd = &cobra.Command{
 func init() {
 	// StringVar / BoolVar 把命令行 flag 绑定到包级变量。
 	// 参数：目标变量指针、flag 名称、默认值、帮助说明
-	genCmd.Flags().StringVar(&flagConfig, "config", "base-code.yaml", "配置文件路径")
-	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名（必填）")
-	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "覆盖配置中的方言")
-	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印不落盘")
-	genCmd.Flags().BoolVar(&flagOnlyTableModify, "only-table-modify", false, "仅生成改表影响的层")
-	genCmd.Flags().BoolVar(&flagWithoutApi, "without-api", false, "不生成 API 相关层")
+	genCmd.Flags().StringVar(&flagConfig, "config", "base-code.yaml", "配置文件路径（默认: base-code.yaml，缺席时进入纯 flag 模式）")
+	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名，如 sys_user,sys_role（必填）")
+	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "SQL 方言：mysql 或 postgresql（默认: mysql）")
+	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印生成代码到终端，不落盘（默认: false）")
+	genCmd.Flags().BoolVar(&flagSyncSchema, "sync-schema", false, "改表后只重新生成受表结构影响的层（默认: false）")
+	genCmd.Flags().BoolVar(&flagWithApi, "with-api", false, "额外生成 API 层 api/api-impl（默认: false；加此开关生成全 14 层）")
+	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（必填）")
+	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（默认: ./src/main/java）")
+	genCmd.Flags().StringVar(&flagResourcesRoot, "resources-root", "", "mapper-xml 输出根目录（默认: 由 output-root 推导）")
+	genCmd.Flags().StringVar(&flagAuthor, "author", "", "代码 @author（默认: git config user.name）")
+	genCmd.Flags().BoolVar(&flagUseJakarta, "use-jakarta", true, "true=jakarta 包（Spring Boot 3+），false=javax 包（默认: true）")
+	genCmd.Flags().StringVar(&flagDateType, "date-type", "", "modern=java.time.*，legacy=java.util.Date（默认: modern）")
+	genCmd.Flags().StringVar(&flagDbHost, "db-host", "", "数据库主机（默认: 127.0.0.1）")
+	genCmd.Flags().IntVar(&flagDbPort, "db-port", 0, "数据库端口（默认: 按方言 3306/5432）")
+	genCmd.Flags().StringVar(&flagDbUser, "db-user", "", "数据库用户名（默认: root）")
+	genCmd.Flags().StringVar(&flagDbPassword, "db-password", "", "数据库密码（默认: 空）")
+	genCmd.Flags().StringVar(&flagDbName, "db-name", "", "数据库名（必填）")
+	genCmd.Flags().StringVar(&flagApiServiceName, "api-service-name", "", "@FeignClient 服务名（默认: base-package 末段）")
+	genCmd.Flags().StringVar(&flagApiBasePath, "api-base-path", "", "API 基础路径前缀（默认: /+base-package 末段）")
+	genCmd.Flags().StringVar(&flagAutoFillInsert, "auto-fill-insert", "", "插入自动填充列，逗号分隔（默认: created_at,updated_at,created_by,updated_by）")
+	genCmd.Flags().StringVar(&flagAutoFillUpdate, "auto-fill-update", "", "更新自动填充列，逗号分隔（默认: updated_at,updated_by）")
 
-	// 内联配置 flag（与 base-code.yaml 各键一一对应；提供后覆盖文件值）
-	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（内联，覆盖配置文件）")
-	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（内联）")
-	genCmd.Flags().StringVar(&flagResourcesRoot, "resources-root", "", "mapper-xml 输出根目录（内联，缺省由 output-root 推导）")
-	genCmd.Flags().StringVar(&flagAuthor, "author", "", "代码 @author（内联，缺省读 git config user.name）")
-	genCmd.Flags().BoolVar(&flagUseJakarta, "use-jakarta", true, "true=jakarta 包（Spring Boot 3+），false=javax 包（内联）")
-	genCmd.Flags().StringVar(&flagDateType, "date-type", "", "modern=java.time.*，legacy=java.util.Date（内联）")
-	genCmd.Flags().StringVar(&flagDbHost, "db-host", "", "数据库主机（内联）")
-	genCmd.Flags().IntVar(&flagDbPort, "db-port", 0, "数据库端口（内联，缺省按方言 3306/5432）")
-	genCmd.Flags().StringVar(&flagDbUser, "db-user", "", "数据库用户名（内联）")
-	genCmd.Flags().StringVar(&flagDbPassword, "db-password", "", "数据库密码（内联）")
-	genCmd.Flags().StringVar(&flagDbName, "db-name", "", "数据库名（内联）")
-	genCmd.Flags().StringVar(&flagServiceName, "service-name", "", "@FeignClient 服务名（内联，缺省 base-package 末段）")
-	genCmd.Flags().StringVar(&flagBasePath, "base-path", "", "API 基础路径前缀（内联，缺省 /+base-package 末段）")
-	genCmd.Flags().StringVar(&flagAutoFillInsert, "auto-fill-insert", "", "插入自动填充列，逗号分隔（内联）")
-	genCmd.Flags().StringVar(&flagAutoFillUpdate, "auto-fill-update", "", "更新自动填充列，逗号分隔（内联）")
-
-	// MarkFlagRequired 标记 --tables 为必填。
-	// 若用户未提供 --tables，cobra 在 RunE 调用前就打印错误并退出（不进入 RunE）。
+	// MarkFlagRequired 标记 --tables 与 --base-package、--db-name 为必填。
+	// 若用户未提供这些 flag，cobra 在 RunE 调用前就打印错误并退出（不进入 RunE）。
 	// _ = 忽略返回值：MarkFlagRequired 只在 flag 名不存在时才返回 error，此处 flag 刚注册故不会出错。
 	_ = genCmd.MarkFlagRequired("tables")
+	_ = genCmd.MarkFlagRequired("base-package")
+	_ = genCmd.MarkFlagRequired("db-name")
+
+	// 设置分组渲染的 usage 函数
+	genCmd.SetUsageFunc(groupedUsage)
 }
 
 // dbDriverAndDSN 按方言返回 database/sql 驱动名与连接串（DSN）。
@@ -252,4 +270,55 @@ func splitCSV(s string) []string {
 		}
 	}
 	return out
+}
+
+// flagGroups 定义 gen 命令帮助的语义分组与组内顺序（openapi-generator 风格）。
+var flagGroups = []struct {
+	title string
+	names []string
+}{
+	{"生成目标", []string{"tables", "base-package", "output-root", "resources-root"}},
+	{"数据库连接", []string{"dialect", "db-host", "db-port", "db-user", "db-password", "db-name"}},
+	{"API 层", []string{"api-service-name", "api-base-path", "with-api"}},
+	{"生成行为", []string{"sync-schema", "dry-run", "config", "author", "use-jakarta", "date-type", "auto-fill-insert", "auto-fill-update"}},
+}
+
+// groupedUsage 按语义分组渲染 flag 帮助，替代 cobra 默认的字母序平铺。
+//
+// Go 小白知识点：cobra 允许用 SetUsageFunc 整体接管 usage 输出——
+// 拿到 *cobra.Command 后自由组织文本，返回 error 以兼容接口签名。
+func groupedUsage(cmd *cobra.Command) error {
+	out := cmd.OutOrStderr()
+	fmt.Fprintf(out, "用法:\n  base-code gen --tables <表名,...> --base-package <包名> --db-name <库名> [flags]\n\n")
+	seen := map[string]bool{"help": true} // help 由 cobra 内建，不入组
+	for _, g := range flagGroups {
+		fmt.Fprintf(out, "%s:\n", g.title)
+		for _, name := range g.names {
+			f := cmd.Flags().Lookup(name)
+			if f == nil {
+				continue
+			}
+			seen[f.Name] = true
+			fmt.Fprintf(out, "      --%-20s %s\n", f.Name+" "+f.Value.Type(), f.Usage)
+		}
+		fmt.Fprintln(out)
+	}
+	// 兜底：未入组的 flag 渲染到「其他」，防止新增 flag 在帮助里静默丢失。
+	var rest []*pflag.Flag
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if !seen[f.Name] {
+			rest = append(rest, f)
+		}
+	})
+	if len(rest) > 0 {
+		fmt.Fprintln(out, "其他:")
+		for _, f := range rest {
+			fmt.Fprintf(out, "      --%-20s %s\n", f.Name+" "+f.Value.Type(), f.Usage)
+		}
+		fmt.Fprintln(out)
+	}
+	if cmd.Example != "" {
+		fmt.Fprintf(out, "示例:\n%s\n", cmd.Example)
+	}
+	return nil
 }
