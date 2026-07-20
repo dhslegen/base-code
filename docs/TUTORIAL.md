@@ -429,7 +429,7 @@ var Layers = map[string]LayerSpec{
 #### 层过滤（SelectLayers）
 
 ```go
-// internal/generator/generate.go:321-334
+// internal/generator/generate.go:315-328
 func SelectLayers(onlyTableModify, withoutApi bool) []string {
     // 从 AllLayers()（全 14 层稳定顺序）按两个开关过滤：
     // onlyTableModify=true → 仅保留 po/req-dto/resp-dto/mapper-xml/query/query-req-dto（6 层，对应 --sync-schema）
