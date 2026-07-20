@@ -19,6 +19,7 @@ type Config struct {
 	Author        string     `yaml:"author"`
 	UseJakarta    *bool      `yaml:"use-jakarta"` // 指针：区分「未配置」与「配置为 false」
 	DateType      string     `yaml:"date-type"`
+	WithApi       *bool      `yaml:"with-api"` // 指针：区分「未配置」（缺省 false，不生成 API 层）与「显式 true」
 	Api           Api        `yaml:"api"`
 	Datasource    Datasource `yaml:"datasource"`
 	AutoFill      AutoFill   `yaml:"auto-fill"`
@@ -64,6 +65,7 @@ type Overrides struct {
 	Author         *string
 	UseJakarta     *bool
 	DateType       *string
+	WithApi        *bool
 	Dialect        *string
 	DbHost         *string
 	DbPort         *int
@@ -130,6 +132,9 @@ func applyOverrides(c *Config, ov Overrides) {
 	if ov.UseJakarta != nil {
 		c.UseJakarta = ov.UseJakarta
 	}
+	if ov.WithApi != nil {
+		c.WithApi = ov.WithApi
+	}
 	if ov.DateType != nil {
 		c.DateType = *ov.DateType
 	}
@@ -165,35 +170,22 @@ func applyOverrides(c *Config, ov Overrides) {
 	}
 }
 
-// validate 校验必填项。错误信息面向 agent 自修复：列出缺失 flag 并给出可复制的完整命令样例。
+// validate 校验必填项。错误信息面向 agent 自修复：列出缺失 flag 并给出可复制的最短命令样例。
+// 注：--tables 由 cobra 的 MarkFlagRequired 把守，不在配置层校验。
 func validate(c Config) error {
 	var missing []string
 	if c.BasePackage == "" {
 		missing = append(missing, "--base-package")
 	}
-	if c.OutputRoot == "" {
-		missing = append(missing, "--output-root")
-	}
-	if c.Datasource.Host == "" {
-		missing = append(missing, "--db-host")
-	}
-	if c.Datasource.Username == "" {
-		missing = append(missing, "--db-user")
-	}
 	if c.Datasource.Database == "" {
 		missing = append(missing, "--db-name")
-	}
-	if c.Datasource.Dialect == "" {
-		missing = append(missing, "--dialect")
 	}
 	if len(missing) == 0 {
 		return nil
 	}
 	return fmt.Errorf(`缺少必填配置：%s
 可写入配置文件（--config），或用内联 flag 一行直达，例如：
-  base-code gen --tables sys_user \
-    --base-package com.example.demo --output-root ./src/main/java \
-    --dialect mysql --db-host 127.0.0.1 --db-user root --db-password '***' --db-name demo`,
+  base-code gen --tables sys_user --base-package com.example.demo --db-name demo`,
 		strings.Join(missing, "、"))
 }
 
@@ -216,6 +208,24 @@ func applyDefaults(c *Config) {
 	if len(c.AutoFill.UpdateColumns) == 0 {
 		c.AutoFill.UpdateColumns = []string{"updated_at", "updated_by"}
 	}
+	// with-api 缺省 false：默认只生成 12 个后端层，需要 Feign 层的工程显式配 true。
+	if c.WithApi == nil {
+		f := false
+		c.WithApi = &f
+	}
+	// 连接参数约定默认值：本地开发零配置直连（flag > 文件 > 这里的约定值）。
+	if c.Datasource.Dialect == "" {
+		c.Datasource.Dialect = "mysql"
+	}
+	if c.Datasource.Host == "" {
+		c.Datasource.Host = "127.0.0.1"
+	}
+	if c.Datasource.Username == "" {
+		c.Datasource.Username = "root"
+	}
+	if c.OutputRoot == "" {
+		c.OutputRoot = "./src/main/java"
+	}
 	// api 缺省派生：service-name = base-package 末段；base-path = "/" + 末段。
 	// 显式配置优先——只补空缺字段，两字段各自独立判断。
 	seg := c.BasePackage
@@ -229,6 +239,7 @@ func applyDefaults(c *Config) {
 		c.Api.BasePath = "/" + seg
 	}
 	// 端口缺省按方言派生：mysql→3306，postgresql→5432（内联模式 agent 可少传一项）。
+	// 关键：dialect 缺省必须在这里之前，否则以下派生读不到方言。
 	if c.Datasource.Port == 0 {
 		if c.Datasource.Dialect == "postgresql" {
 			c.Datasource.Port = 5432

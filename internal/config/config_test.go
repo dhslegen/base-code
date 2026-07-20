@@ -116,15 +116,10 @@ func intPtr(i int) *int             { return &i }
 func boolPtr(b bool) *bool          { return &b }
 func colsPtr(c ...string) *[]string { return &c }
 
-// fullOverrides 返回一份可通过必填校验的最小完整内联配置。
+// fullOverrides 返回一份可通过必填校验的最小完整内联配置（新语义：仅 base-package + db-name）。
 func fullOverrides() Overrides {
 	return Overrides{
 		BasePackage: strPtr("com.example.hello"),
-		OutputRoot:  strPtr("./src/main/java"),
-		Dialect:     strPtr("mysql"),
-		DbHost:      strPtr("127.0.0.1"),
-		DbUser:      strPtr("root"),
-		DbPassword:  strPtr("pw"),
 		DbName:      strPtr("hello"),
 	}
 }
@@ -137,6 +132,9 @@ func TestLoadWithOverrides_PureFlags(t *testing.T) {
 	}
 	if cfg.BasePackage != "com.example.hello" {
 		t.Errorf("BasePackage = %q", cfg.BasePackage)
+	}
+	if cfg.OutputRoot != "./src/main/java" {
+		t.Errorf("OutputRoot = %q, want ./src/main/java", cfg.OutputRoot)
 	}
 	if cfg.Datasource.Port != 3306 {
 		t.Errorf("mysql 未设端口应派生 3306，得到 %d", cfg.Datasource.Port)
@@ -192,33 +190,37 @@ func TestLoadWithOverrides_PgPortDerived(t *testing.T) {
 	}
 }
 
-// TestLoadWithOverrides_MissingRequiredHint 验证缺必填项时错误含缺失 flag 名与命令样例。
+// TestLoadWithOverrides_MissingRequiredHint 验证缺必填项时错误含缺失 flag 名与三参最短样例。
 func TestLoadWithOverrides_MissingRequiredHint(t *testing.T) {
 	_, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, Overrides{
-		BasePackage: strPtr("com.example.hello"),
+		OutputRoot: strPtr("./x"),
 	})
 	if err == nil {
-		t.Fatal("缺 output-root/db 必填项应报错")
+		t.Fatal("缺 base-package/db-name 应报错")
 	}
-	for _, want := range []string{"--output-root", "--db-host", "--db-user", "--db-name", "base-code gen"} {
+	for _, want := range []string{"--base-package", "--db-name", "base-code gen"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息应含 %q，实际: %v", want, err)
+		}
+	}
+	// 已有约定默认值的项不应再出现在必填清单里
+	for _, banned := range []string{"--db-host", "--db-user", "--output-root", "--dialect"} {
+		if strings.Contains(err.Error(), banned) {
+			t.Errorf("错误信息不应再含 %q（已有约定默认值），实际: %v", banned, err)
 		}
 	}
 }
 
-// TestLoadWithOverrides_MissingDialectHint 验证漏传 --dialect 时错误信息仍在 agent 自修复通道内。
-func TestLoadWithOverrides_MissingDialectHint(t *testing.T) {
+// TestLoadWithOverrides_DialectDefaultsMysql 验证未传 dialect 时缺省 mysql（含端口派生 3306）。
+func TestLoadWithOverrides_DialectDefaultsMysql(t *testing.T) {
 	ov := fullOverrides()
 	ov.Dialect = nil
-	_, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, ov)
-	if err == nil {
-		t.Fatal("缺 --dialect 应报错")
+	cfg, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, ov)
+	if err != nil {
+		t.Fatalf("dialect 缺省应为 mysql 而非报错: %v", err)
 	}
-	for _, want := range []string{"--dialect", "base-code gen"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("错误信息应含 %q，实际: %v", want, err)
-		}
+	if cfg.Datasource.Dialect != "mysql" || cfg.Datasource.Port != 3306 {
+		t.Errorf("缺省方言/端口 = %q/%d, want mysql/3306", cfg.Datasource.Dialect, cfg.Datasource.Port)
 	}
 }
 
@@ -232,5 +234,90 @@ func TestLoadWithOverrides_ExplicitZeroPortKept(t *testing.T) {
 	}
 	if cfg.Datasource.Port != 0 {
 		t.Errorf("显式 --db-port 0 应保留，得到 %d", cfg.Datasource.Port)
+	}
+}
+
+// TestLoadWithOverrides_ConnectionDefaults 验证连接参数的约定默认值全套下沉。
+func TestLoadWithOverrides_ConnectionDefaults(t *testing.T) {
+	cfg, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, fullOverrides())
+	if err != nil {
+		t.Fatalf("最短两参应成功: %v", err)
+	}
+	ds := cfg.Datasource
+	if ds.Host != "127.0.0.1" || ds.Username != "root" || ds.Password != "" {
+		t.Errorf("连接默认值 = %s/%s/%q, want 127.0.0.1/root/\"\"", ds.Host, ds.Username, ds.Password)
+	}
+	if cfg.OutputRoot != "./src/main/java" {
+		t.Errorf("OutputRoot = %q, want ./src/main/java", cfg.OutputRoot)
+	}
+}
+
+// TestLoad_FileValuesBeatConventionDefaults 验证配置文件值优先于约定默认值（不被 127.0.0.1 等覆盖）。
+func TestLoad_FileValuesBeatConventionDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	yaml := `base-code:
+  base-package: com.x
+  output-root: ./custom/java
+  datasource:
+    host: db.prod
+    username: svc
+    database: d
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.Datasource.Host != "db.prod" || cfg.Datasource.Username != "svc" || cfg.OutputRoot != "./custom/java" {
+		t.Errorf("文件值被约定默认值覆盖: %s/%s/%s", cfg.Datasource.Host, cfg.Datasource.Username, cfg.OutputRoot)
+	}
+}
+
+// TestLoadWithOverrides_WithApiDefaultFalse 验证 with-api 缺省 false（默认不生成 API 层）。
+func TestLoadWithOverrides_WithApiDefaultFalse(t *testing.T) {
+	cfg, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, fullOverrides())
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.WithApi == nil || *cfg.WithApi != false {
+		t.Errorf("WithApi 缺省应为 false，得到 %v", cfg.WithApi)
+	}
+}
+
+// TestLoad_WithApiExplicitTrue 验证 yaml 显式 with-api: true 不被缺省 false 覆盖。
+func TestLoad_WithApiExplicitTrue(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	yaml := `base-code:
+  base-package: com.x
+  with-api: true
+  datasource:
+    database: d
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if cfg.WithApi == nil || *cfg.WithApi != true {
+		t.Errorf("yaml 显式 true 应保留，得到 %v", cfg.WithApi)
+	}
+}
+
+// TestLoadWithOverrides_WithApiFlagOverridesFile 验证 flag 显式 true 覆盖缺省 false。
+func TestLoadWithOverrides_WithApiFlagOverridesFile(t *testing.T) {
+	ov := fullOverrides()
+	ov.WithApi = boolPtr(true)
+	cfg, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, ov)
+	if err != nil {
+		t.Fatalf("加载失败: %v", err)
+	}
+	if *cfg.WithApi != true {
+		t.Error("--with-api 应覆盖缺省 false")
 	}
 }
