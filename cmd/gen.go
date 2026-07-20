@@ -66,6 +66,12 @@ var (
 var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "生成代码",
+	// Args: cobra.NoArgs 拒绝任何「位置参数」（不以 -- 开头的裸参数）。
+	// 动机：bool flag 不接值，`--with-api true` 这种写法里 cobra/pflag 会把
+	// --with-api 当成已提供（true），而把裸词 "true" 当成位置参数——不加这道校验，
+	// cobra 默认允许任意位置参数，会静默吞掉这个 "true"，用户以为传参生效了实际只是误打误撞。
+	// NoArgs 让这种误用直接报错（unknown command "true" for "base-code gen" / accepts 0 arg(s)）。
+	Args: cobra.NoArgs,
 	Example: `  # 最短命令（默认 6 层后端核心）
   base-code gen --tables it_user --base-package com.example.hello --db-name hello
 
@@ -202,7 +208,7 @@ func init() {
 	genCmd.Flags().StringVar(&flagTables, "tables", "", "逗号分隔的表名，如 sys_user,sys_role（必填）")
 	genCmd.Flags().StringVar(&flagDialect, "dialect", "", "SQL 方言：mysql 或 postgresql（默认: mysql）")
 	genCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "只打印生成代码到终端，不落盘（默认: false）")
-	genCmd.Flags().BoolVar(&flagSyncSchema, "sync-schema", false, "改表后只重新生成受表结构影响的层（默认: false）")
+	genCmd.Flags().BoolVar(&flagSyncSchema, "sync-schema", false, "改表后只重新生成受表结构影响的层（默认 API-less 工程 3 层 po/mapper-xml/query；配 --with-api 含 DTO 共 6 层）（默认: false）")
 	genCmd.Flags().BoolVar(&flagWithApi, "with-api", false, "生成 API 层及其依赖的 DTO/converter（默认: false；不加则仅 6 层后端核心，加则全 14 层）")
 	genCmd.Flags().StringVar(&flagBasePackage, "base-package", "", "Java 基础包名（必填）")
 	genCmd.Flags().StringVar(&flagOutputRoot, "output-root", "", "Java 源文件输出根目录（默认: ./src/main/java）")
@@ -281,6 +287,22 @@ var flagGroups = []struct {
 	{"生成行为", []string{"sync-schema", "dry-run", "config", "author", "use-jakarta", "date-type", "auto-fill-insert", "auto-fill-update"}},
 }
 
+// flagDisplayName 返回 flag 在帮助文本里的「名称+类型」展示串。
+//
+// bool flag 不接值（如 --dry-run，而非 --dry-run true），遵循 cobra/pflag 惯例，
+// 帮助文本里省略类型名；其余类型仍展示 "--name type"，便于用户判断该传什么。
+func flagDisplayName(f *pflag.Flag) string {
+	if f.Value.Type() == "bool" {
+		return "--" + f.Name
+	}
+	return "--" + f.Name + " " + f.Value.Type()
+}
+
+// helpLineName 是硬编码的 -h/--help 展示串，用于并入对齐宽度计算与「生成行为」组末尾渲染。
+// cobra 内建 help flag 不在 cmd.Flags() 分组遍历范围内（seen["help"]=true 特意跳过），
+// 若不手动补一行，用户在 --help 输出里完全看不到 --help 本身，无从发现。
+const helpLineName = "-h, --help"
+
 // groupedUsage 按语义分组渲染 flag 帮助，替代 cobra 默认的字母序平铺。
 //
 // Go 小白知识点：cobra 允许用 SetUsageFunc 整体接管 usage 输出——
@@ -288,30 +310,60 @@ var flagGroups = []struct {
 func groupedUsage(cmd *cobra.Command) error {
 	out := cmd.OutOrStderr()
 	fmt.Fprintf(out, "用法:\n  base-code gen --tables <表名,...> --base-package <包名> --db-name <库名> [flags]\n\n")
-	seen := map[string]bool{"help": true} // help 由 cobra 内建，不入组
+	seen := map[string]bool{"help": true} // help 由 cobra 内建，不入组，改由 helpLineName 手动补一行
+
+	// 第一遍：收集本次会渲染到帮助里的所有 flag（分组 + 兜底「其他」），
+	// 求 "--name type" 展示串的最大宽度，用于动态对齐——
+	// 避免 resources-root / api-service-name / auto-fill-insert 这类长 flag 名把固定宽度的 %-20s 撑爆导致错列。
+	var ordered []*pflag.Flag
 	for _, g := range flagGroups {
-		fmt.Fprintf(out, "%s:\n", g.title)
 		for _, name := range g.names {
-			f := cmd.Flags().Lookup(name)
-			if f == nil {
-				continue
+			if f := cmd.Flags().Lookup(name); f != nil {
+				seen[f.Name] = true
+				ordered = append(ordered, f)
 			}
-			seen[f.Name] = true
-			fmt.Fprintf(out, "      --%-20s %s\n", f.Name+" "+f.Value.Type(), f.Usage)
 		}
-		fmt.Fprintln(out)
 	}
-	// 兜底：未入组的 flag 渲染到「其他」，防止新增 flag 在帮助里静默丢失。
 	var rest []*pflag.Flag
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if !seen[f.Name] {
 			rest = append(rest, f)
 		}
 	})
+	width := len(helpLineName)
+	for _, f := range ordered {
+		if n := len(flagDisplayName(f)); n > width {
+			width = n
+		}
+	}
+	for _, f := range rest {
+		if n := len(flagDisplayName(f)); n > width {
+			width = n
+		}
+	}
+
+	// 第二遍：按分组渲染，统一用上面算出的 width 左对齐。
+	for gi, g := range flagGroups {
+		fmt.Fprintf(out, "%s:\n", g.title)
+		for _, name := range g.names {
+			f := cmd.Flags().Lookup(name)
+			if f == nil {
+				continue
+			}
+			fmt.Fprintf(out, "      %-*s %s\n", width, flagDisplayName(f), f.Usage)
+		}
+		// -h/--help 是 cobra 内建 flag，不会出现在任何组的 names 列表里；
+		// 挂在最后一组（生成行为）末尾渲染，让 --help 在帮助文本里可被发现。
+		if gi == len(flagGroups)-1 {
+			fmt.Fprintf(out, "      %-*s %s\n", width, helpLineName, "显示帮助")
+		}
+		fmt.Fprintln(out)
+	}
+	// 兜底：未入组的 flag 渲染到「其他」，防止新增 flag 在帮助里静默丢失。
 	if len(rest) > 0 {
 		fmt.Fprintln(out, "其他:")
 		for _, f := range rest {
-			fmt.Fprintf(out, "      --%-20s %s\n", f.Name+" "+f.Value.Type(), f.Usage)
+			fmt.Fprintf(out, "      %-*s %s\n", width, flagDisplayName(f), f.Usage)
 		}
 		fmt.Fprintln(out)
 	}
