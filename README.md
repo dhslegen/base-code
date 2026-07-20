@@ -5,7 +5,7 @@
 [![Go](https://img.shields.io/github/go-mod/go-version/dhslegen/base-code)](go.mod)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
 
-数据库代码生成器（Go 版）。连接 MySQL / PostgreSQL，扫描表结构，按约定生成 MyBatis-Plus 分层 Java 代码（全 14 层）。
+数据库代码生成器（Go 版）。连接 MySQL / PostgreSQL，扫描表结构，按约定生成 MyBatis-Plus 分层 Java 代码（默认 12 层，加 `--with-api` 生成全 14 层）。
 
 > 想深入了解每一站的实现原理？阅读 [docs/TUTORIAL.md](docs/TUTORIAL.md)（全流水线教学，含 Java 对照与 Go 小白知识点）。
 
@@ -57,65 +57,84 @@ go build -o base-code .
 
 ### 一行命令（无需配置文件，agent 友好）
 
-所有配置项均有对应 flag，可不写 `base-code.yaml` 直接执行（优先级：flag > 配置文件 > 约定默认值）：
+必填项仅 `--tables`、`--base-package`、`--db-name` 三项，其余（数据库连接、API 层标识等）均有约定默认值，可不写 `base-code.yaml` 直接执行（优先级：flag > 配置文件 > 约定默认值）：
 
 ```bash
-base-code gen --tables it_user \
-  --base-package com.example.hello --output-root ./src/main/java \
-  --dialect mysql --db-host 127.0.0.1 --db-user root --db-password '你的密码' --db-name hello-mysql \
-  --service-name hello-service --base-path /admin-api/hello
+# 最短命令（默认 12 层，不含 API 层）
+base-code gen --tables it_user --base-package com.example.hello --db-name hello
+
+# 生成全 14 层（含 Feign api/api-impl）
+base-code gen --tables it_user --base-package com.example.hello --db-name hello --with-api
 ```
 
-- `--db-port` 缺省按方言派生（mysql→3306，postgresql→5432）；`--service-name`/`--base-path` 缺省从 `--base-package` 末段派生。
-- 两者混用时 flag 逐项覆盖文件值；显式 `--config` 指向的文件必须存在，未显式时默认 `base-code.yaml` 缺席即进入纯 flag 模式。
+- `--with-api` 默认 `false`，即**默认不生成 API 层**；加此开关（或配置 `with-api: true`）才生成 `api`/`api-impl` 两层，凑齐全 14 层。
+- 连接参数均有约定默认值：`--dialect` 缺省 `mysql`、`--db-host` 缺省 `127.0.0.1`、`--db-user` 缺省 `root`、`--db-port` 按方言派生（mysql→3306，postgresql→5432）；`--api-service-name`/`--api-base-path` 缺省从 `--base-package` 末段派生。
+- flag 与配置文件混用时 flag 逐项覆盖文件值；显式 `--config` 指向的文件必须存在，未显式时默认 `base-code.yaml` 缺席即进入纯 flag 模式。
 - 缺必填项时报错信息会给出可复制的完整命令样例，agent 读错误即可自修复。
 
 ### 命令格式
 
 ```
-base-code gen \
-  --config base-code.yaml \
-  --tables <逗号分隔的表名> \
-  [--dialect mysql|postgresql] \
-  [--without-api] \
-  [--only-table-modify] \
-  [--dry-run]
+base-code gen --tables <表名,...> --base-package <包名> --db-name <库名> [flags]
 ```
+
+flag 按用途分四组：生成目标、数据库连接、API 层、生成行为，详见下方「Flag 说明」；完整帮助见 `base-code gen --help`。
 
 ### Flag 说明
 
+与 `base-code gen --help` 的四个分组一一对应。
+
+#### 生成目标
+
 | Flag | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--config` | string | `base-code.yaml` | 配置文件路径 |
 | `--tables` | string | **必填** | 逗号分隔的表名，如 `sys_user,sys_role` |
-| `--dialect` | string | （使用配置文件中的值） | 覆盖配置文件中的 SQL 方言（`mysql` 或 `postgresql`） |
-| `--without-api` | bool | `false` | 不生成 API 相关层，仅保留后端内部层 |
-| `--only-table-modify` | bool | `false` | 仅生成改表影响的层（用于改列后局部重生成） |
+| `--base-package` | string | **必填** | Java 基础包名 |
+| `--output-root` | string | `./src/main/java` | Java 源文件输出根目录 |
+| `--resources-root` | string | 由 output-root 推导 | mapper-xml 输出根目录 |
+
+#### 数据库连接
+
+| Flag | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--dialect` | string | `mysql` | SQL 方言：`mysql` 或 `postgresql` |
+| `--db-host` | string | `127.0.0.1` | 数据库主机 |
+| `--db-port` | int | 按方言 3306/5432 | 数据库端口 |
+| `--db-user` | string | `root` | 数据库用户名 |
+| `--db-password` | string | 空 | 数据库密码 |
+| `--db-name` | string | **必填** | 数据库名 |
+
+#### API 层
+
+| Flag | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--api-service-name` | string | base-package 末段 | `@FeignClient` 服务名 |
+| `--api-base-path` | string | `/`+base-package 末段 | API 基础路径前缀 |
+| `--with-api` | bool | `false` | 额外生成 API 层 `api`/`api-impl`（加此开关生成全 14 层） |
+
+#### 生成行为
+
+| Flag | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--sync-schema` | bool | `false` | 改表后只重新生成受表结构影响的层 |
 | `--dry-run` | bool | `false` | 只打印生成代码到终端，不落盘 |
-| `--author` | string | 读 git config user.name | 代码 @author（内联，缺省读 git config user.name） |
-| `--auto-fill-insert` | string | （无） | 插入自动填充列，逗号分隔（内联） |
-| `--auto-fill-update` | string | （无） | 更新自动填充列，逗号分隔（内联） |
-| `--base-package` | string | （使用配置文件中的值） | Java 基础包名（内联，覆盖配置文件） |
-| `--base-path` | string | `/+base-package 末段` | API 基础路径前缀（内联） |
-| `--date-type` | string | `modern` | `modern`=java.time.*，`legacy`=java.util.Date（内联） |
-| `--db-host` | string | （使用配置文件中的值） | 数据库主机（内联） |
-| `--db-name` | string | （使用配置文件中的值） | 数据库名（内联） |
-| `--db-password` | string | （使用配置文件中的值） | 数据库密码（内联） |
-| `--db-port` | int | 按方言派生 | 数据库端口（内联，缺省 mysql→3306，postgresql→5432） |
-| `--db-user` | string | （使用配置文件中的值） | 数据库用户名（内联） |
-| `--output-root` | string | （使用配置文件中的值） | Java 源文件输出根目录（内联） |
-| `--resources-root` | string | 由 output-root 推导 | mapper-xml 输出根目录（内联） |
-| `--service-name` | string | base-package 末段 | @FeignClient 服务名（内联） |
-| `--use-jakarta` | bool | `true` | `true`=jakarta 包（Spring Boot 3+），`false`=javax 包（内联） |
+| `--config` | string | `base-code.yaml` | 配置文件路径，缺席时进入纯 flag 模式 |
+| `--author` | string | 读 git config user.name | 代码 @author |
+| `--use-jakarta` | bool | `true` | `true`=jakarta 包（Spring Boot 3+），`false`=javax 包 |
+| `--date-type` | string | `modern` | `modern`=java.time.*，`legacy`=java.util.Date |
+| `--auto-fill-insert` | string | `created_at,updated_at,created_by,updated_by` | 插入自动填充列，逗号分隔 |
+| `--auto-fill-update` | string | `updated_at,updated_by` | 更新自动填充列，逗号分隔 |
 
 ### 最小配置文件（base-code.yaml）
 
 ```yaml
 base-code:
   base-package: com.example.demo        # Java 基础包名（必填）
-  output-root: ./src/main/java          # Java 源文件输出根目录（必填）
+
+  # with-api: true  # 默认不生成 API 层；配 true 生成全 14 层
 
   # 可选字段（缺省均有约定默认值）
+  # output-root: ./src/main/java          # Java 源文件输出根目录；缺省 ./src/main/java
   # resources-root: ./src/main/resources  # mapper-xml 输出根；缺省由 output-root 推导
   # author: zhaowenhao                    # 代码 @author；缺省读 git config user.name
   # use-jakarta: true                     # true=jakarta 包（Spring Boot 3+），false=javax 包
@@ -127,12 +146,12 @@ base-code:
   #   base-path: /admin-api/demo           # 所有 API 端点的基础路径前缀
 
   datasource:
-    dialect: mysql                      # mysql 或 postgresql
-    host: localhost
-    port: 3306
-    username: root
-    password: secret
-    database: demo
+    database: demo                      # 数据库名（必填）
+    # dialect: mysql                      # mysql 或 postgresql；缺省 mysql
+    # host: 127.0.0.1                     # 缺省 127.0.0.1
+    # port: 3306                          # 缺省按方言派生：mysql→3306，postgresql→5432
+    # username: root                      # 缺省 root
+    # password: secret                    # 缺省空
 
   # 自动填充列（@TableField(fill=...)），缺省约定如下
   # auto-fill:
@@ -143,17 +162,17 @@ base-code:
 ### 使用示例
 
 ```bash
-# 生成 sys_user 表的全 14 层
+# 生成 sys_user 表的默认 12 层（不含 API 层）
 base-code gen --config base-code.yaml --tables sys_user
 
 # 同时生成多张表
 base-code gen --config base-code.yaml --tables "sys_user,sys_role,sys_menu"
 
 # 改列后只重新生成受影响的 6 层（不覆盖 service/api 手写代码）
-base-code gen --config base-code.yaml --tables sys_user --only-table-modify
+base-code gen --config base-code.yaml --tables sys_user --sync-schema
 
-# 不生成 API/Feign 层（纯后端服务）
-base-code gen --config base-code.yaml --tables sys_user --without-api
+# 生成全 14 层（含 API/Feign 层）
+base-code gen --config base-code.yaml --tables sys_user --with-api
 
 # 预览生成内容（不落盘）
 base-code gen --config base-code.yaml --tables sys_user --dry-run
@@ -193,6 +212,8 @@ base-code completion fish > ~/.config/fish/completions/base-code.fish
 ---
 
 ## 生成的 14 层一览
+
+默认生成 12 层（`api`/`api-impl` 需 `--with-api` 或 `with-api: true`）。
 
 | 层 | 文件（以 `sys_user` 为例） | 说明 |
 |----|--------------------------|------|

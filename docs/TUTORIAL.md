@@ -62,7 +62,7 @@
 **关键文件**：`internal/config/config.go`
 
 ```go
-// internal/config/config.go:15-25
+// internal/config/config.go:15-26
 type Config struct {
     BasePackage   string     `yaml:"base-package"`
     OutputRoot    string     `yaml:"output-root"`
@@ -70,16 +70,17 @@ type Config struct {
     Author        string     `yaml:"author"`
     UseJakarta    *bool      `yaml:"use-jakarta"` // 指针：区分「未配置」与「配置为 false」
     DateType      string     `yaml:"date-type"`
+    WithApi       *bool      `yaml:"with-api"` // 指针：区分「未配置」（缺省 false，不生成 API 层）与「显式 true」
     Api           Api        `yaml:"api"`
     Datasource    Datasource `yaml:"datasource"`
     AutoFill      AutoFill   `yaml:"auto-fill"`
 }
 ```
 
-配置来源不止 YAML 文件——`base-code gen` 还支持 15 个内联 flag（`--base-package`、`--db-host` 等，见站 8）。`Overrides` 是「命令行显式提供了什么」的快照，全部用指针字段：
+配置来源不止 YAML 文件——`base-code gen` 还支持 17 个内联 flag（`--base-package`、`--db-host`、`--with-api` 等，见站 8）。`Overrides` 是「命令行显式提供了什么」的快照，全部用指针字段：
 
 ```go
-// internal/config/config.go:60-77
+// internal/config/config.go:61-79
 type Overrides struct {
     BasePackage    *string
     OutputRoot     *string
@@ -87,6 +88,7 @@ type Overrides struct {
     Author         *string
     UseJakarta     *bool
     DateType       *string
+    WithApi        *bool
     Dialect        *string
     DbHost         *string
     DbPort         *int
@@ -99,6 +101,8 @@ type Overrides struct {
     AutoFillUpdate *[]string
 }
 ```
+
+`ServiceName`/`BasePath` 对应 CLI 的 `--api-service-name`/`--api-base-path`（yaml 键仍是 `api.service-name`/`api.base-path`——只有 flag 名加了 `api-` 前缀防止顶层撞名，字段名/yaml 键未变）。
 
 这是 `UseJakarta *bool` 那个「指针区分未配置/零值」教学点的自然延伸：`nil` 表示「命令行未提供该项」，非 nil（哪怕指向 `""`/`0`/`false`）表示「显式提供」。所以 `--db-port 0` 与「不传 `--db-port`」是两码事——前者会真的把端口设为 0，后者才会触发方言派生（3306/5432）。
 
@@ -113,14 +117,20 @@ func Load(path string) (Config, error) {
 
 真正的加载入口是 `LoadWithOverrides(path, requireFile, ov)`，优先级为 **flag > 配置文件 > 约定默认值**：
 - `requireFile=true`（用户显式 `--config`）：文件缺失直接报错；`requireFile=false`（纯 flag 模式，`Load` 不会走到这一态）：文件缺失是合法状态，从零配置起步。
-- 依次执行：`applyOverrides` 叠加非 nil 的 `ov` 字段 → `applyDefaults` 补约定默认值（含方言→端口派生）→ 用 `ov.DbPort` 再覆盖一次端口（防止显式 `--db-port 0` 被 3306/5432 派生值顶掉）→ `validate` 校验 6 项必填（含 `--dialect`），报错带 flag 名与可复制的完整命令样例。
+- 依次执行：`applyOverrides` 叠加非 nil 的 `ov` 字段 → `applyDefaults` 补约定默认值（含方言→端口派生）→ 用 `ov.DbPort` 再覆盖一次端口（防止显式 `--db-port 0` 被 3306/5432 派生值顶掉）→ `validate` 校验必填项，报错带 flag 名与可复制的完整命令样例。
+- 必填项现在只剩 2 项：`base-package`、`db-name`（`tables` 由 cobra 的 `MarkFlagRequired` 把守，不在 `validate` 里）——数据库连接、API 层标识等其余项全部约定默认值下沉，agent 三参直达。
 
 **约定默认值**（`applyDefaults`）：
 - `UseJakarta`：nil → `true`（Spring Boot 3+ 默认 jakarta）
 - `DateType`：空 → `"modern"`（使用 `java.time.*`）
 - `Author`：空 → `gitUserName()`（读 git config）
+- `WithApi`：nil → `false`（**默认不生成 API 层**，`api`/`api-impl` 需显式 `--with-api` 或 `with-api: true`）
 - `AutoFill.InsertColumns`：空 → `["created_at","updated_at","created_by","updated_by"]`
 - `AutoFill.UpdateColumns`：空 → `["updated_at","updated_by"]`
+- `Datasource.Dialect`：空 → `"mysql"`；`Datasource.Host`：空 → `"127.0.0.1"`；`Datasource.Username`：空 → `"root"`
+- `OutputRoot`：空 → `"./src/main/java"`
+- `Datasource.Port`：`0` → 按方言派生（mysql→3306，postgresql→5432；dialect 缺省必须先于此步补齐）
+- `Api.ServiceName`/`Api.BasePath`：空 → 从 `BasePackage` 末段派生（如 `com.example.demo` → `demo` / `/demo`）
 
 > **Java 对照**
 >
@@ -419,14 +429,16 @@ var Layers = map[string]LayerSpec{
 #### 层过滤（SelectLayers）
 
 ```go
-// internal/generator/generate.go:313-326
+// internal/generator/generate.go:321-334
 func SelectLayers(onlyTableModify, withoutApi bool) []string {
     // 从 AllLayers()（全 14 层稳定顺序）按两个开关过滤：
-    // onlyTableModify=true → 仅保留 po/req-dto/resp-dto/mapper-xml/query/query-req-dto
-    // withoutApi=true      → 仅保留 service/service-impl/po/query/mapper/mapper-xml
-    // 两者同时 true        → 取交集（po/query/mapper-xml）
+    // onlyTableModify=true → 仅保留 po/req-dto/resp-dto/mapper-xml/query/query-req-dto（6 层，对应 --sync-schema）
+    // withoutApi=true      → 仅保留全 14 层去掉 api/api-impl（12 层，对应「未传 --with-api」）
+    // 两者同时 true        → 取交集，即 onlyTableModify 的 6 层（本就不含 api/api-impl）
 }
 ```
+
+调用方 `cmd/gen.go` 把 `--with-api` 取反传给 `withoutApi` 参数：`generator.SelectLayers(flagSyncSchema, !*cfg.WithApi)`——`with-api` 已归入 `config`（flag > 文件 > 缺省 `false`），`sync-schema` 是纯运行时开关，不入配置文件。
 
 #### BuildTemplateData + idType 动态推导
 
@@ -464,24 +476,24 @@ func BuildTemplateData(meta model.TableMetadata, cfg config.Config) (TemplateDat
 #### Flag 定义
 
 ```go
-// cmd/gen.go:30-36（完整 var 块还有 15 个内联配置 flag，延伸至 56 行）
+// cmd/gen.go:31-37（完整 var 块还有 15 个内联配置 flag，延伸至 56 行）
 var (
-    flagConfig          string // --config：配置文件路径
-    flagTables          string // --tables：逗号分隔的表名（必填）
-    flagDialect         string // --dialect：覆盖配置文件中的方言
-    flagDryRun          bool   // --dry-run：只打印到终端，不落盘
-    flagOnlyTableModify bool   // --only-table-modify：仅生成改表影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
-    flagWithoutApi      bool   // --without-api：不生成 API 相关层，保留后端内部层（service/service-impl/po/query/mapper/mapper-xml）
+    flagConfig     string // --config：配置文件路径
+    flagTables     string // --tables：逗号分隔的表名（必填）
+    flagDialect    string // --dialect：覆盖配置文件中的方言
+    flagDryRun     bool   // --dry-run：只打印到终端，不落盘
+    flagSyncSchema bool   // --sync-schema：改表后只重新生成受表结构影响的层（po/req-dto/resp-dto/mapper-xml/query/query-req-dto）
+    flagWithApi    bool   // --with-api：额外生成 API 层 api/api-impl
     ...
 )
 ```
 
-15 个内联配置 flag（`--base-package`、`--output-root`、`--db-host` 等，与 `base-code.yaml` 各配置键一一对应）不在本文重复列出，完整清单见 [README.md](../README.md) 的「Flag 说明」节——单处维护，避免和这里脱节。
+这 6 个变量里 `flagDialect`/`flagWithApi` 也对应 `Overrides` 字段；连同下方另 15 个内联配置 flag，共 17 个内联 flag（`--base-package`、`--output-root`、`--db-host`、`--with-api` 等，与 `base-code.yaml` 各配置键一一对应）不在本文重复列出，完整清单见 [README.md](../README.md) 的「Flag 说明」节（按生成目标/数据库连接/API 层/生成行为四组渲染）——单处维护，避免和这里脱节。
 
 `genCmd.RunE` 把「哪些内联 flag 要装进 `config.Overrides`」交给 `fs.Changed`（`*pflag.FlagSet` 方法）判断，而不是看值是否为零值：
 
 ```go
-// cmd/gen.go:98-100
+// cmd/gen.go:112-114
 if fs.Changed("db-port") {
     ov.DbPort = &flagDbPort
 }
@@ -554,10 +566,9 @@ import (
 
 | flag 组合 | 输出层 |
 |-----------|--------|
-| 默认（无 flag） | 全 14 层 |
-| `--only-table-modify` | `po` / `req-dto` / `resp-dto` / `mapper-xml` / `query` / `query-req-dto` |
-| `--without-api` | `service` / `service-impl` / `po` / `query` / `mapper` / `mapper-xml` |
-| 两者同时 | `po` / `query` / `mapper-xml`（取交集） |
+| 默认（无 `--with-api`） | 12 层：全 14 层去掉 `api` / `api-impl` |
+| `--with-api` | 全 14 层 |
+| `--sync-schema`（不论是否 `--with-api`） | 6 层：`po` / `req-dto` / `resp-dto` / `mapper-xml` / `query` / `query-req-dto` |
 
 ---
 
