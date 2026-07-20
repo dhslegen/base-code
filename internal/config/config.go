@@ -183,6 +183,9 @@ func validate(c Config) error {
 	if c.Datasource.Database == "" {
 		missing = append(missing, "--db-name")
 	}
+	if c.Datasource.Dialect == "" {
+		missing = append(missing, "--dialect")
+	}
 	if len(missing) == 0 {
 		return nil
 	}

@@ -52,7 +52,7 @@ func TestLoad_EmptyBasePackage(t *testing.T) {
 func TestLoad_ExplicitUseJakartaFalse(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
-	if err := os.WriteFile(path, []byte("base-code:\n  base-package: com.x\n  output-root: ./x\n  use-jakarta: false\n  datasource:\n    host: h\n    username: u\n    database: d\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("base-code:\n  base-package: com.x\n  output-root: ./x\n  use-jakarta: false\n  datasource:\n    dialect: mysql\n    host: h\n    username: u\n    database: d\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(path)
@@ -201,6 +201,21 @@ func TestLoadWithOverrides_MissingRequiredHint(t *testing.T) {
 		t.Fatal("缺 output-root/db 必填项应报错")
 	}
 	for _, want := range []string{"--output-root", "--db-host", "--db-user", "--db-name", "base-code gen"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("错误信息应含 %q，实际: %v", want, err)
+		}
+	}
+}
+
+// TestLoadWithOverrides_MissingDialectHint 验证漏传 --dialect 时错误信息仍在 agent 自修复通道内。
+func TestLoadWithOverrides_MissingDialectHint(t *testing.T) {
+	ov := fullOverrides()
+	ov.Dialect = nil
+	_, err := LoadWithOverrides("no-such-dir/base-code.yaml", false, ov)
+	if err == nil {
+		t.Fatal("缺 --dialect 应报错")
+	}
+	for _, want := range []string{"--dialect", "base-code gen"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息应含 %q，实际: %v", want, err)
 		}
