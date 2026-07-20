@@ -4,3 +4,6 @@
 
 # goreleaser 本地干跑/发版产物，不入库
 /dist/
+
+# macOS
+.DS_Store
