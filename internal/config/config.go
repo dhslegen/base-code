@@ -194,7 +194,8 @@ func validate(c Config) error {
 	}
 	return fmt.Errorf(`缺少必填配置：%s
 可写入配置文件（--config），或用内联 flag 一行直达，例如：
-  base-code gen --tables sys_user --base-package com.example.demo --db-name demo`,
+  base-code gen --tables sys_user --base-package com.example.demo --db-name demo
+也可先执行 base-code init 生成配置模版，编辑后直接运行 base-code gen`,
 		strings.Join(missing, "、"))
 }
 

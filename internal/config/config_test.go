@@ -200,7 +200,7 @@ func TestLoadWithOverrides_MissingRequiredHint(t *testing.T) {
 	if err == nil {
 		t.Fatal("缺 tables/base-package/db-name 应报错")
 	}
-	for _, want := range []string{"--tables", "--base-package", "--db-name", "base-code gen"} {
+	for _, want := range []string{"--tables", "--base-package", "--db-name", "base-code gen", "base-code init"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息应含 %q，实际: %v", want, err)
 		}
