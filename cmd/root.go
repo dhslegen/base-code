@@ -32,4 +32,6 @@ func init() {
 	// 把 gen 子命令注册到根命令，让 `base-code gen` 可用。
 	// genCmd 定义在 gen.go（同一包 cmd），Go 包内跨文件可以直接引用。
 	rootCmd.AddCommand(genCmd)
+	// init 子命令：生成配置模版（定义在 init.go）。
+	rootCmd.AddCommand(initCmd)
 }
